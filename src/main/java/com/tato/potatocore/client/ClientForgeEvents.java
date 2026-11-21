@@ -9,6 +9,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.ComputeFovModifierEvent;
 import net.minecraftforge.client.event.RenderGuiEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -64,10 +65,30 @@ public final class ClientForgeEvents {
             minecraft.setScreen(new PotatoCoreScreen(PotatoCoreScreen.Tab.MACROS));
         }
 
+        while (ClientKeyMappings.TOGGLE_SPRINT.consumeClick()) {
+            ToggleSprintController.toggle();
+        }
+
+        while (ClientKeyMappings.TOGGLE_STATUS_HUD.consumeClick()) {
+            boolean showHud = !PotatoCoreConfig.SHOW_STATUS_HUD.get();
+            PotatoCoreConfig.SHOW_STATUS_HUD.set(showHud);
+            PotatoCoreConfig.SPEC.save();
+            if (minecraft.player != null) {
+                minecraft.player.displayClientMessage(
+                        Component.literal("PotatoCore Status HUD: " + (showHud ? "ON" : "OFF")), true);
+            }
+        }
+
         ClickerController.tick();
         MacroController.tick();
         AutoFishController.tick();
+        ToggleSprintController.tick();
         UtilityController.tick();
+    }
+
+    @SubscribeEvent
+    public static void onComputeFov(ComputeFovModifierEvent event) {
+        ZoomController.apply(event);
     }
 
     @SubscribeEvent
@@ -98,6 +119,9 @@ public final class ClientForgeEvents {
         }
         if (AutoFishController.isEnabled()) {
             lines.add("Auto Fish: " + AutoFishController.getStatus());
+        }
+        if (ToggleSprintController.isEnabled()) {
+            lines.add("Toggle Sprint: ON");
         }
 
         GuiGraphics graphics = event.getGuiGraphics();

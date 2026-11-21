@@ -1,84 +1,83 @@
 # PotatoCore
 
-**A configurable automation toolkit for Minecraft 1.20.1 / Forge 47.4.28.**
+**A configurable client-side automation and quality-of-life toolkit for Minecraft 1.20.1 / Forge 47.4.28.**
 
-PotatoCore is a client-side utility mod focused on reusable click profiles and configurable macros.
+Target environment: Minecraft **1.20.1**, Forge **47.4.28**, Java **17**. The current Project Infinity target is pack version **0.1**.
 
-## Target environment
+## Controls
 
-- Minecraft: **1.20.1**
-- Forge: **47.4.28**
-- Java: **17**
-- Project Infinity pack: **0.1** (manifest version **0.0.52.1** supplied during setup)
+All PotatoCore keybindings are configurable through **Options → Controls → Key Binds**. Search for **PotatoCore**. Bindings are grouped into Automation, Interface, Movement, View, and Utilities categories.
 
-## Click automation
-
-| Key | Action |
+| Default | Action |
 | --- | --- |
 | F6 | Toggle left-click automation |
 | F7 | Toggle right-click automation |
+| F8 | Open PotatoCore Macro tab |
 | F9 | Cycle right-click profile |
-| O | Open PotatoCore menu |\n| F12 | Toggle Auto Fish |
-| F8 | Open Macro Builder |
-| F10 | Toggle the configured macro |
+| F10 | Toggle configured macro |
+| F12 | Toggle Auto Fish |
+| O | Open PotatoCore menu |
+| V | Toggle Sprint |
+| Hold C | Smooth zoom |
+| Home | Toggle status HUD |
+
+## Click automation
 
 Left- and right-click automation have independent enable states and independent timing. They can run at the same time.
 
 Right-click profiles:
-
-- **Right Click**: repeated use input.
+- **Right Click**: repeats use input.
 - **Pebbles**: holds sneak and repeats right-click.
-- **Sieve**: repeats right-click only while the targeted block's registry path contains the word sieve, to avoid clicking unrelated blocks.
+- **Sieve**: repeats right-click only while the targeted block registry path contains `sieve`.
 
-Every click profile has an independent interval configured in minutes, seconds, and milliseconds. Automation pauses while a screen is open or the game is paused. Sneak state is shared between Pebbles and macro actions so one feature does not release sneak while the other still needs it.
+Each click profile has an independent interval in minutes, seconds, and milliseconds. Automation pauses while a screen is open or the game is paused. Sneak state is shared between Pebbles and macro actions.
 
 Minecraft processes player input on client ticks, so very small configured intervals do not guarantee the same number of server-side interactions per second.
 
-## Macro Builder
+## Macro Workshop
 
-The in-game Macro Builder edits a reusable action profile:
-
-- Action: left click, right click, or sneak + right click.
+The in-game Macro tab edits a reusable action profile:
+- Left click, right click, or sneak + right click.
 - Optional exact main-hand item requirement.
-- Optional health safety guard.
-- Configurable stop threshold in hearts (one heart is two health points).
-- Configurable action interval in milliseconds.
-- Optional auto-resume once health recovers above the threshold.
+- Optional health safety guard and stop threshold.
+- Configurable action interval.
+- Optional auto-resume after healing.
 
-The **Load Blood Magic Knife preset** selects right-click, requires the item currently held in the main hand, enables the health guard, sets the stop threshold to one heart, and enables auto-resume. Hold the Sacrificial Knife before loading the preset, or use **Use item in main hand** to capture its registry ID.
+The **Blood Magic Knife preset** selects right-click, requires the currently held item, enables the health guard, sets the stop threshold to one heart, and enables auto-resume. Hold the Sacrificial Knife before loading the preset, or capture your held item in the tab.
 
-Macro activation is session-only and never silently turns itself on after restarting Minecraft. F10 toggles the macro after its settings are saved.
+Macro activation is session-only and never silently turns itself on after restarting Minecraft.
 
-## Auto Fish\n\nAuto Fish casts a held fishing rod, watches the bobber for a bite, reels in the catch, and recasts after a configurable delay. The default recast delay is 1,500 ms and can be changed from the main PotatoCore menu. It supports a rod in either hand and automatically disables itself when no fishing rod is held. It pauses while a screen is open or the game is paused. Fishing bite detection uses the bobber's downward movement after its initial splash, so unusual server-side fishing behavior may require tuning.\n\n## Utilities\n\nThe main menu is divided into Clicker, Macros, Fishing, and Utilities tabs. The translucent screen leaves the world visible in the background. The optional status HUD displays coordinates, dimension, and active automation. Durability alerts warn when a held damageable item reaches the configured remaining-durability percentage. Inventory alerts fire when all main inventory storage slots are occupied. The Utilities tab also includes a one-click coordinate and dimension clipboard action.\n\n## Automatic updates
+## Fishing
 
-Automatic update checks are enabled by default and can be disabled in the client config at:
+Auto Fish casts a held fishing rod, watches the bobber for a bite, reels in, then recasts after a configurable delay. It supports a rod in either hand and stops if no fishing rod is held. It pauses while a screen is open or the game is paused.
 
-    config/potato_core-client.toml
+Bite detection currently uses the bobber's downward movement after its initial splash. Server-side fishing changes or unusual bobber behavior may require tuning.
 
-At client startup, PotatoCore checks the latest stable GitHub Release. If a newer release is available, it downloads the attached JAR, verifies its archive signature and GitHub-provided SHA-256 digest when available, and stages the update. The updater launches a small OS-specific installer that waits for Minecraft to close, replaces only the currently loaded PotatoCore JAR, and leaves the new version ready for the next launch. No GitHub token is stored in the mod.
+## Quality of life
 
-The updater only replaces the JAR when PotatoCore is installed directly in the instance's `mods` folder. Development runs and unusual launcher layouts are detected and skipped rather than modifying unrelated files.
+The translucent PotatoCore panel leaves the Minecraft world visible and groups its controls into Clicker, Macros, Fishing, and Utilities tabs.
 
-## Releases and builds
+- **Toggle Sprint**: holds the normal sprint input until toggled off. Vanilla movement restrictions still apply.
+- **Smooth Zoom**: hold the assigned key for a smooth 4x zoom effect. Other FOV modifiers remain in effect.
+- **Status HUD**: optional coordinates, dimension, and active automation display.
+- **Durability alerts**: warns when a held damageable item reaches the configured remaining-durability percentage.
+- **Inventory alerts**: warns when all main inventory storage slots are occupied.
+- **Copy coordinates**: copies block coordinates and dimension to the clipboard.
 
-Every successful push to `main` builds a versioned JAR and publishes it as a stable GitHub Release. For the current 0.1 line, the patch version increments with each workflow run. A pushed `vX.Y.Z` tag publishes that exact version. Pull requests are build-checked but do not publish releases.
+## Automatic updates
 
-Release downloads are available from:
+Automatic update checks are enabled by default and can be disabled in `config/potato_core-client.toml`.
 
-https://github.com/wtffidy/PotatoCore/releases/latest
+At client startup, PotatoCore checks the latest stable GitHub Release. If a newer release is available, it downloads the attached JAR, verifies the GitHub-provided SHA-256 digest when available, and stages the update. The updater waits for Minecraft to close before replacing the currently loaded PotatoCore JAR.
 
-The published JAR name is always versioned, for example `PotatoCore-0.1.1.jar`. The workflow does not publish commit-hash-named JAR artifacts.
+The updater only replaces the JAR when PotatoCore is installed directly in the instance's `mods` folder. Development runs and unusual launcher layouts are skipped.
 
-## Build locally
+## Builds and releases
 
-Install a Java 17 JDK and Gradle 8.1.1, then run:
+Every successful push to `main` builds a versioned JAR and publishes it as a GitHub Release. For the current 0.1 line, the patch version increments with each workflow run. A pushed `vX.Y.Z` tag publishes that exact version. Pull requests are build-checked but do not publish releases.
+
+Downloads: https://github.com/wtffidy/PotatoCore/releases/latest
+
+For a local build, install Java 17 and Gradle 8.1.1, then run:
 
     gradle -PmodVersion=0.1.1 build --no-daemon
-
-The compiled mod will be written to `build/libs/`.
-
-## Integration status
-
-Pebbles and Sieve currently provide client-input profiles. Sieve profile target detection uses the block registry path and looks for the word sieve; unusual block IDs may need an explicit compatibility mapping. A client-side click macro cannot override server-side fake-player or automated-sieve restrictions. It sends the local player's normal use input rather than creating a fake player.
-
-The macro action/condition settings are the base for expanding into a multi-step visual macro editor.

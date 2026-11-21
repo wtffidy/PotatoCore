@@ -1,10 +1,17 @@
 {
-  "key.categories.potato_core": "PotatoCore",
-  "key.potato_core.toggle_left_click": "Toggle left-click automation",
-  "key.potato_core.toggle_right_click": "Toggle right-click automation",
-  "key.potato_core.open_macro_builder": "Open Macro Builder",
-  "key.potato_core.next_right_mode": "Next right-click profile",
-  "key.potato_core.toggle_macro": "Toggle macro",
+  "key.categories.potato_core.automation": "PotatoCore: Automation",
+  "key.categories.potato_core.interface": "PotatoCore: Interface",
+  "key.categories.potato_core.movement": "PotatoCore: Movement",
+  "key.categories.potato_core.view": "PotatoCore: View",
+  "key.categories.potato_core.utilities": "PotatoCore: Utilities",
+  "key.potato_core.toggle_left_click": "Toggle Left-Click Automation",
+  "key.potato_core.toggle_right_click": "Toggle Right-Click Automation",
+  "key.potato_core.open_macro_builder": "Open PotatoCore Macro Tab",
+  "key.potato_core.next_right_mode": "Cycle Right-Click Profile",
+  "key.potato_core.toggle_macro": "Toggle Active Macro",
   "key.potato_core.toggle_auto_fish": "Toggle Auto Fish",
-  "key.potato_core.open_main_menu": "Open PotatoCore menu"
+  "key.potato_core.open_main_menu": "Open PotatoCore Menu",
+  "key.potato_core.toggle_sprint": "Toggle Sprint",
+  "key.potato_core.hold_to_zoom": "Hold to Zoom",
+  "key.potato_core.toggle_status_hud": "Toggle PotatoCore Status HUD"
 }

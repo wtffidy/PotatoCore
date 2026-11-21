@@ -21,6 +21,9 @@ public final class ClientModEvents {
         event.register(ClientKeyMappings.TOGGLE_MACRO);
         event.register(ClientKeyMappings.TOGGLE_AUTO_FISH);
         event.register(ClientKeyMappings.OPEN_MAIN_MENU);
+        event.register(ClientKeyMappings.TOGGLE_SPRINT);
+        event.register(ClientKeyMappings.HOLD_TO_ZOOM);
+        event.register(ClientKeyMappings.TOGGLE_STATUS_HUD);
     }
 
     @SubscribeEvent

@@ -48,7 +48,7 @@ public final class PotatoCoreConfig {
         PEBBLES_MILLISECONDS = builder.defineInRange("pebblesMilliseconds", 250, 0, 999);
         SIEVE_MINUTES = builder.defineInRange("sieveMinutes", 0, 0, 999);
         SIEVE_SECONDS = builder.defineInRange("sieveSeconds", 0, 0, 59);
-        SIEVE_MILLISECONDS = builder.defineInRange("sieveMilliseconds", 0, 0, 999);
+        SIEVE_MILLISECONDS = builder.defineInRange("sieveMilliseconds", 250, 0, 999);
         builder.pop();
 
         builder.push("macroBuilder");

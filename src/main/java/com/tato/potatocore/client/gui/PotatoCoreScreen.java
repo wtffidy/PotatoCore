@@ -4,6 +4,7 @@ import com.tato.potatocore.client.AutoFishController;
 import com.tato.potatocore.client.ClickMode;
 import com.tato.potatocore.client.ClickerController;
 import com.tato.potatocore.client.UtilityController;
+import com.tato.potatocore.client.ToggleSprintController;
 import com.tato.potatocore.client.macro.MacroAction;
 import com.tato.potatocore.client.macro.MacroController;
 import com.tato.potatocore.config.PotatoCoreConfig;
@@ -53,6 +54,7 @@ public final class PotatoCoreScreen extends Screen {
     private Button hudButton;
     private Button durabilityButton;
     private Button inventoryButton;
+    private Button sprintButton;
 
     private EditBox minutesInput;
     private EditBox secondsInput;
@@ -233,17 +235,22 @@ public final class PotatoCoreScreen extends Screen {
             button.setMessage(inventoryText());
         }).bounds(left + 18, top + 136, 434, 20).build());
 
-        durabilityThresholdInput = new EditBox(font, left + 18, top + 190, 100, 20,
+        sprintButton = addTabWidget(Tab.UTILITIES, Button.builder(sprintText(), button -> {
+            ToggleSprintController.toggle();
+            button.setMessage(sprintText());
+        }).bounds(left + 18, top + 163, 434, 20).build());
+
+        durabilityThresholdInput = new EditBox(font, left + 18, top + 217, 100, 20,
                 Component.literal("Durability %"));
         durabilityThresholdInput.setMaxLength(3);
         durabilityThresholdInput.setValue(Integer.toString(PotatoCoreConfig.DURABILITY_WARNING_PERCENT.get()));
         addTabWidget(Tab.UTILITIES, durabilityThresholdInput);
 
         addTabWidget(Tab.UTILITIES, Button.builder(Component.literal("Save warning threshold"), button -> saveUtilitySettings())
-                .bounds(left + 128, top + 190, 210, 20).build());
+                .bounds(left + 128, top + 217, 210, 20).build());
 
         addTabWidget(Tab.UTILITIES, Button.builder(Component.literal("Copy coordinates"), button -> UtilityController.copyCoordinates())
-                .bounds(left + 18, top + 220, 434, 20).build());
+                .bounds(left + 18, top + 247, 434, 20).build());
     }
 
     private <T extends AbstractWidget> T addTabWidget(Tab tab, T widget) {
@@ -344,6 +351,10 @@ public final class PotatoCoreScreen extends Screen {
     private Component inventoryText() {
         return Component.literal("No empty inventory slot alerts: " +
                 (PotatoCoreConfig.INVENTORY_FULL_WARNING_ENABLED.get() ? "ON" : "OFF"));
+    }
+
+    private Component sprintText() {
+        return Component.literal("Toggle Sprint: " + (ToggleSprintController.isEnabled() ? "ON" : "OFF") + " (V)");
     }
 
     private ClickMode getEditingMode() {
@@ -507,6 +518,7 @@ public final class PotatoCoreScreen extends Screen {
         hudButton.setMessage(hudText());
         durabilityButton.setMessage(durabilityText());
         inventoryButton.setMessage(inventoryText());
+        sprintButton.setMessage(sprintText());
 
         int left = width / 2 - PANEL_WIDTH / 2;
         int top = Math.max(8, height / 2 - PANEL_HEIGHT / 2);
@@ -545,10 +557,12 @@ public final class PotatoCoreScreen extends Screen {
             }
             case UTILITIES -> {
                 graphics.drawString(font, "QUALITY OF LIFE", left + 18, top + 68, 0xFF9CB5D0);
-                graphics.drawString(font, "Warn when remaining durability reaches this percentage:", left + 18, top + 174,
+                graphics.drawString(font, "Warn when remaining durability reaches this percentage:", left + 18, top + 201,
                         0xFFB9C7D6);
-                graphics.drawCenteredString(font, "HUD includes coordinates and enabled automation status.",
-                        width / 2, top + 270, 0xFF9CAFC4);
+                graphics.drawCenteredString(font, "Hold the zoom key for a smooth 4x view.",
+                        width / 2, top + 286, 0xFF9CAFC4);
+                graphics.drawCenteredString(font, "All PotatoCore keys can be rebound in Options > Controls.",
+                        width / 2, top + 304, 0xFF9CAFC4);
             }
         }
 
