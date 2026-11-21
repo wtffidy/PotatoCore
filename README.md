@@ -49,13 +49,33 @@ The **Load Blood Magic Knife preset** selects right-click, requires the item cur
 
 Macro activation is session-only and never silently turns itself on after restarting Minecraft. F10 toggles the macro after its settings are saved.
 
-## Build
+## Automatic updates
+
+Automatic update checks are enabled by default and can be disabled in the client config at:
+
+    config/potato_core-client.toml
+
+At client startup, PotatoCore checks the latest stable GitHub Release. If a newer release is available, it downloads the attached JAR, verifies its archive signature and GitHub-provided SHA-256 digest when available, and stages the update. The updater launches a small OS-specific installer that waits for Minecraft to close, replaces only the currently loaded PotatoCore JAR, and leaves the new version ready for the next launch. No GitHub token is stored in the mod.
+
+The updater only replaces the JAR when PotatoCore is installed directly in the instance's `mods` folder. Development runs and unusual launcher layouts are detected and skipped rather than modifying unrelated files.
+
+## Releases and builds
+
+Every successful push to `main` builds a versioned JAR and publishes it as a stable GitHub Release. For the current 0.1 line, the patch version increments with each workflow run. A pushed `vX.Y.Z` tag publishes that exact version. Pull requests are build-checked but do not publish releases.
+
+Release downloads are available from:
+
+https://github.com/wtffidy/PotatoCore/releases/latest
+
+The published JAR name is always versioned, for example `PotatoCore-0.1.1.jar`. The workflow does not publish commit-hash-named JAR artifacts.
+
+## Build locally
 
 Install a Java 17 JDK and Gradle 8.1.1, then run:
 
-    gradle build --no-daemon
+    gradle -PmodVersion=0.1.1 build --no-daemon
 
-The compiled mod will be written to build/libs/. GitHub Actions runs the same build and uploads the JAR as a workflow artifact.
+The compiled mod will be written to `build/libs/`.
 
 ## Integration status
 
