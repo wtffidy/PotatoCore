@@ -1,9 +1,9 @@
 package com.tato.potatocore.client;
 
 import com.tato.potatocore.config.PotatoCoreConfig;
+import net.minecraft.Util;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
-import net.minecraft.util.Util;
 
 public final class ClickerController {
     private static boolean enabled;
