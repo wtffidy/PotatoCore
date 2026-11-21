@@ -1,10 +1,10 @@
 package com.tato.potatocore.client.macro;
 
 import com.tato.potatocore.config.PotatoCoreConfig;
+import net.minecraft.Util;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Util;
 import net.minecraftforge.registries.ForgeRegistries;
 
 public final class BloodMagicKnifeMacro {
