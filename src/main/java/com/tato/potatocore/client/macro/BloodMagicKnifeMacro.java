@@ -9,19 +9,34 @@ import net.minecraftforge.registries.ForgeRegistries;
 
 public final class BloodMagicKnifeMacro {
     private static long nextClickAt;
+    private static boolean enabled;
     private static boolean pausedForHealth;
 
     private BloodMagicKnifeMacro() {
     }
 
+    public static void setEnabled(boolean value) {
+        enabled = value;
+        nextClickAt = 0L;
+        pausedForHealth = false;
+    }
+
+    public static boolean isEnabled() {
+        return enabled;
+    }
+
     public static void tick() {
-        if (!PotatoCoreConfig.BLOOD_MAGIC_ENABLED.get()) {
-            resetRuntimeState();
+        if (!enabled) {
             return;
         }
 
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.player == null || minecraft.level == null || minecraft.screen != null || minecraft.isPaused()) {
+        if (minecraft.player == null || minecraft.level == null) {
+            setEnabled(false);
+            return;
+        }
+
+        if (minecraft.screen != null || minecraft.isPaused()) {
             return;
         }
 
@@ -64,22 +79,27 @@ public final class BloodMagicKnifeMacro {
         nextClickAt = now + PotatoCoreConfig.BLOOD_MAGIC_INTERVAL_MILLISECONDS.get();
     }
 
-    private static void resetRuntimeState() {
-        nextClickAt = 0L;
-        pausedForHealth = false;
-    }
-
-    public static boolean isPausedForHealth() {
-        return pausedForHealth;
-    }
-
     public static String getStatus() {
-        if (!PotatoCoreConfig.BLOOD_MAGIC_ENABLED.get()) {
+        if (!enabled) {
             return "Disabled";
         }
-        if (PotatoCoreConfig.BLOOD_MAGIC_ITEM_ID.get().isBlank()) {
+
+        String itemId = PotatoCoreConfig.BLOOD_MAGIC_ITEM_ID.get().trim();
+        if (itemId.isEmpty()) {
             return "Set the required held item";
         }
-        return pausedForHealth ? "Paused: health threshold reached" : "Armed";
+
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player == null) {
+            return "Waiting for player";
+        }
+
+        ResourceLocation configuredItemId = ResourceLocation.tryParse(itemId);
+        ResourceLocation heldItemId = ForgeRegistries.ITEMS.getKey(minecraft.player.getMainHandItem().getItem());
+        if (configuredItemId == null || !configuredItemId.equals(heldItemId)) {
+            return "Waiting for configured item";
+        }
+
+        return pausedForHealth ? "Paused: health threshold reached" : "Active";
     }
 }
