@@ -6,7 +6,9 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.tato.potatocore.PotatoCore;
 import com.tato.potatocore.config.PotatoCoreConfig;
-import net.minecraftforge.fml.ModList;\nimport net.minecraftforge.fml.loading.FMLPaths;
+import net.minecraftforge.fml.ModList;
+import net.minecraftforge.forgespi.language.IModFileInfo;
+import net.minecraftforge.fml.loading.FMLPaths;
 
 import java.io.IOException;
 import java.io.InputStream;
