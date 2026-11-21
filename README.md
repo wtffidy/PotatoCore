@@ -18,7 +18,7 @@ PotatoCore is a client-side utility mod focused on reusable click profiles and c
 | F6 | Toggle left-click automation |
 | F7 | Toggle right-click automation |
 | F9 | Cycle right-click profile |
-| O | Open PotatoCore menu |
+| O | Open PotatoCore menu |\n| F11 | Toggle Auto Fish |
 | F8 | Open Macro Builder |
 | F10 | Toggle the configured macro |
 
@@ -49,7 +49,7 @@ The **Load Blood Magic Knife preset** selects right-click, requires the item cur
 
 Macro activation is session-only and never silently turns itself on after restarting Minecraft. F10 toggles the macro after its settings are saved.
 
-## Automatic updates
+## Auto Fish\n\nAuto Fish casts a held fishing rod, watches the bobber for a bite, reels in the catch, and recasts after a configurable delay. The default recast delay is 1,500 ms and can be changed from the main PotatoCore menu. It supports a rod in either hand and automatically disables itself when no fishing rod is held. It pauses while a screen is open or the game is paused. Fishing bite detection uses the bobber's downward movement after its initial splash, so unusual server-side fishing behavior may require tuning.\n\n## Automatic updates
 
 Automatic update checks are enabled by default and can be disabled in the client config at:
 
