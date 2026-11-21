@@ -5,6 +5,7 @@ import net.minecraft.client.Minecraft;
 public final class SneakKeyController {
     private static boolean clickerRequestsSneak;
     private static boolean macroRequestsSneak;
+    private static boolean toggleSneakRequestsSneak;
     private static boolean controllingSneak;
     private static boolean sneakWasDown;
 
@@ -21,16 +22,21 @@ public final class SneakKeyController {
         updateSneakState();
     }
 
+    public static void setToggleSneaking(boolean enabled) {
+        toggleSneakRequestsSneak = enabled;
+        updateSneakState();
+    }
+
     public static void releaseAll() {
         clickerRequestsSneak = false;
         macroRequestsSneak = false;
+        toggleSneakRequestsSneak = false;
         updateSneakState();
     }
 
     private static void updateSneakState() {
         Minecraft minecraft = Minecraft.getInstance();
-        boolean shouldSneak = clickerRequestsSneak || macroRequestsSneak;
-
+        boolean shouldSneak = clickerRequestsSneak || macroRequestsSneak || toggleSneakRequestsSneak;
         if (shouldSneak && !controllingSneak) {
             sneakWasDown = minecraft.options.keyShift.isDown();
             minecraft.options.keyShift.setDown(true);
