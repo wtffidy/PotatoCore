@@ -23,9 +23,11 @@ public final class ClientForgeEvents {
         }
 
         Minecraft minecraft = Minecraft.getInstance();
-        String updateNotice = ClientUpdateChecker.consumeNotice();
-        if (updateNotice != null && minecraft.player != null) {
-            minecraft.player.displayClientMessage(Component.literal(updateNotice), false);
+        if (minecraft.player != null) {
+            String updateNotice = ClientUpdateChecker.consumeNotice();
+            if (updateNotice != null) {
+                minecraft.player.displayClientMessage(Component.literal(updateNotice), false);
+            }
         }
 
         while (ClientKeyMappings.TOGGLE_LEFT_CLICK.consumeClick()) {
