@@ -5,6 +5,7 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
 @Mod.EventBusSubscriber(modid = PotatoCore.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class ClientModEvents {
@@ -19,5 +20,10 @@ public final class ClientModEvents {
         event.register(ClientKeyMappings.NEXT_RIGHT_MODE);
         event.register(ClientKeyMappings.TOGGLE_MACRO);
         event.register(ClientKeyMappings.OPEN_MAIN_MENU);
+    }
+
+    @SubscribeEvent
+    public static void onClientSetup(FMLClientSetupEvent event) {
+        ClientUpdateChecker.checkForUpdates();
     }
 }
