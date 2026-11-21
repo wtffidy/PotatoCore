@@ -200,10 +200,13 @@ public final class ClientUpdateChecker {
 
     private static Path getInstalledJar() {
         try {
-            URI location = PotatoCore.class.getProtectionDomain().getCodeSource().getLocation().toURI();
-            Path jarPath = Path.of(location).toAbsolutePath().normalize();
-            Path modsDirectory = FMLPaths.MODSDIR.get().toAbsolutePath().normalize();
+            IModFileInfo modFileInfo = ModList.get().getModFileById(PotatoCore.MOD_ID);
+            if (modFileInfo == null) {
+                return null;
+            }
 
+            Path jarPath = modFileInfo.getFile().getFilePath().toAbsolutePath().normalize();
+            Path modsDirectory = FMLPaths.MODSDIR.get().toAbsolutePath().normalize();
             if (!Files.isRegularFile(jarPath)
                     || !jarPath.getParent().equals(modsDirectory)
                     || !jarPath.getFileName().toString().toLowerCase().startsWith("potatocore")
