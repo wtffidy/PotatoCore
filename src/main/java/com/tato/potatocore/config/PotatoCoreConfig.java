@@ -16,7 +16,6 @@ public final class PotatoCoreConfig {
     public static final ForgeConfigSpec.IntValue SIEVE_MINUTES;
     public static final ForgeConfigSpec.IntValue SIEVE_SECONDS;
     public static final ForgeConfigSpec.IntValue SIEVE_MILLISECONDS;
-    public static final ForgeConfigSpec.BooleanValue BLOOD_MAGIC_ENABLED;
     public static final ForgeConfigSpec.ConfigValue<String> BLOOD_MAGIC_ITEM_ID;
     public static final ForgeConfigSpec.IntValue BLOOD_MAGIC_STOP_HEARTS;
     public static final ForgeConfigSpec.IntValue BLOOD_MAGIC_INTERVAL_MILLISECONDS;
@@ -24,6 +23,7 @@ public final class PotatoCoreConfig {
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
+
         builder.push("clicker");
         LEFT_MINUTES = builder.defineInRange("leftMinutes", 0, 0, 999);
         LEFT_SECONDS = builder.defineInRange("leftSeconds", 0, 0, 59);
@@ -41,13 +41,13 @@ public final class PotatoCoreConfig {
 
         builder.push("macros");
         builder.push("bloodMagicSacrificialKnife");
-        BLOOD_MAGIC_ENABLED = builder.define("enabled", false);
         BLOOD_MAGIC_ITEM_ID = builder.define("requiredItemId", "");
         BLOOD_MAGIC_STOP_HEARTS = builder.defineInRange("stopAtHearts", 1, 1, 10);
         BLOOD_MAGIC_INTERVAL_MILLISECONDS = builder.defineInRange("intervalMilliseconds", 250, 1, 60000);
         BLOOD_MAGIC_AUTO_RESUME = builder.define("autoResumeAfterHealing", true);
         builder.pop();
         builder.pop();
+
         SPEC = builder.build();
     }
 
