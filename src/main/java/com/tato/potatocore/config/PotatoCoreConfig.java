@@ -24,9 +24,14 @@ public final class PotatoCoreConfig {
     public static final ForgeConfigSpec.BooleanValue MACRO_HEALTH_GUARD_ENABLED;
     public static final ForgeConfigSpec.IntValue MACRO_STOP_HEARTS;
     public static final ForgeConfigSpec.IntValue MACRO_INTERVAL_MILLISECONDS;
-    public static final ForgeConfigSpec.BooleanValue MACRO_AUTO_RESUME;
+
     public static final ForgeConfigSpec.IntValue AUTO_FISH_RECAST_DELAY_MS;
+    public static final ForgeConfigSpec.IntValue DURABILITY_WARNING_PERCENT;
+    public static final ForgeConfigSpec.BooleanValue SHOW_STATUS_HUD;
+    public static final ForgeConfigSpec.BooleanValue DURABILITY_WARNING_ENABLED;
+    public static final ForgeConfigSpec.BooleanValue INVENTORY_FULL_WARNING_ENABLED;
     public static final ForgeConfigSpec.BooleanValue AUTO_UPDATE_ENABLED;
+    public static final ForgeConfigSpec.BooleanValue MACRO_AUTO_RESUME;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -43,7 +48,7 @@ public final class PotatoCoreConfig {
         PEBBLES_MILLISECONDS = builder.defineInRange("pebblesMilliseconds", 250, 0, 999);
         SIEVE_MINUTES = builder.defineInRange("sieveMinutes", 0, 0, 999);
         SIEVE_SECONDS = builder.defineInRange("sieveSeconds", 0, 0, 59);
-        SIEVE_MILLISECONDS = builder.defineInRange("sieveMilliseconds", 250, 0, 999);
+        SIEVE_MILLISECONDS = builder.defineInRange("sieveMilliseconds", 0, 0, 999);
         builder.pop();
 
         builder.push("macroBuilder");
@@ -58,6 +63,13 @@ public final class PotatoCoreConfig {
 
         builder.push("autoFish");
         AUTO_FISH_RECAST_DELAY_MS = builder.defineInRange("recastDelayMilliseconds", 1500, 250, 10000);
+        builder.pop();
+
+        builder.push("utilities");
+        SHOW_STATUS_HUD = builder.define("showStatusHud", false);
+        DURABILITY_WARNING_ENABLED = builder.define("durabilityWarnings", true);
+        DURABILITY_WARNING_PERCENT = builder.defineInRange("durabilityWarningPercent", 15, 1, 100);
+        INVENTORY_FULL_WARNING_ENABLED = builder.define("inventoryFullWarnings", true);
         builder.pop();
 
         builder.push("updates");
