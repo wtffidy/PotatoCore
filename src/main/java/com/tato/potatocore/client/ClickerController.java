@@ -4,6 +4,9 @@ import com.tato.potatocore.config.PotatoCoreConfig;
 import net.minecraft.Util;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraftforge.registries.ForgeRegistries;
 
 public final class ClickerController {
     private static boolean leftEnabled;
@@ -47,10 +50,24 @@ public final class ClickerController {
             nextLeftClickAt = now + getIntervalMillis(ClickMode.LEFT);
         }
 
-        if (rightEnabled && now >= nextRightClickAt) {
+        if (rightEnabled && now >= nextRightClickAt && canRunRightProfile(minecraft)) {
             KeyMapping.click(minecraft.options.keyUse.getKey());
             nextRightClickAt = now + getIntervalMillis(rightMode);
         }
+    }
+
+    private static boolean canRunRightProfile(Minecraft minecraft) {
+        if (rightMode != ClickMode.SIEVE) {
+            return true;
+        }
+
+        if (!(minecraft.hitResult instanceof BlockHitResult blockHit)) {
+            return false;
+        }
+
+        ResourceLocation blockId = ForgeRegistries.BLOCKS.getKey(
+                minecraft.level.getBlockState(blockHit.getBlockPos()).getBlock());
+        return blockId != null && blockId.getPath().contains("sieve");
     }
 
     private static void updateSneakState() {

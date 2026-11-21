@@ -28,9 +28,11 @@ Right-click profiles:
 
 - **Right Click**: repeated use input.
 - **Pebbles**: holds sneak and repeats right-click.
-- **Sieve**: repeats right-click without sneak.
+- **Sieve**: repeats right-click only while the targeted block's registry path contains the word sieve, to avoid clicking unrelated blocks.
 
 Every click profile has an independent interval configured in minutes, seconds, and milliseconds. Automation pauses while a screen is open or the game is paused. Sneak state is shared between Pebbles and macro actions so one feature does not release sneak while the other still needs it.
+
+Minecraft processes player input on client ticks, so very small configured intervals do not guarantee the same number of server-side interactions per second.
 
 ## Macro Builder
 
@@ -39,7 +41,7 @@ The in-game Macro Builder edits a reusable action profile:
 - Action: left click, right click, or sneak + right click.
 - Optional exact main-hand item requirement.
 - Optional health safety guard.
-- Configurable stop threshold in hearts (one heart = two health points).
+- Configurable stop threshold in hearts (one heart is two health points).
 - Configurable action interval in milliseconds.
 - Optional auto-resume once health recovers above the threshold.
 
@@ -57,6 +59,6 @@ The compiled mod will be written to build/libs/. GitHub Actions runs the same bu
 
 ## Integration status
 
-Pebbles and Sieve currently provide repeat-input profiles. Mod-specific Ex Deorum / Just Dire Things automation and fake-player integrations need testing against the exact installed versions. A client-side click macro cannot override server-side fake-player or automated-sieve restrictions; configure the relevant mod/server settings where required.
+Pebbles and Sieve currently provide client-input profiles. Sieve profile target detection uses the block registry path and looks for the word sieve; unusual block IDs may need an explicit compatibility mapping. A client-side click macro cannot override server-side fake-player or automated-sieve restrictions. It sends the local player's normal use input rather than creating a fake player.
 
 The macro action/condition settings are the base for expanding into a multi-step visual macro editor.
