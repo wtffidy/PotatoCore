@@ -63,7 +63,10 @@ public final class MacroBuilderScreen extends Screen {
                 return;
             }
 
-            itemIdInput.setValue(ForgeRegistries.ITEMS.getKey(minecraft.player.getMainHandItem().getItem()).toString());
+            String itemId = ForgeRegistries.ITEMS.getKey(minecraft.player.getMainHandItem().getItem()).toString();
+            itemIdInput.setValue(itemId);
+            PotatoCoreConfig.MACRO_REQUIRED_ITEM_ID.set(itemId);
+            PotatoCoreConfig.SPEC.save();
         }).bounds(centerX - 150, top + 158, 300, 20).build());
 
         healthGuardButton = addRenderableWidget(Button.builder(healthGuardText(), button -> {
