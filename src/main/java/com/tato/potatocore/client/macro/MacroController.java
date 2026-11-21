@@ -84,10 +84,12 @@ public final class MacroController {
             return;
         }
 
-        int keyCode = action == MacroAction.LEFT_CLICK
-                ? minecraft.options.keyAttack.getKey()
-                : minecraft.options.keyUse.getKey();
-        KeyMapping.click(keyCode);
+        if (action == MacroAction.LEFT_CLICK) {
+            KeyMapping.click(minecraft.options.keyAttack.getKey());
+        } else {
+            KeyMapping.click(minecraft.options.keyUse.getKey());
+        }
+
         nextActionAt = now + Math.max(1, PotatoCoreConfig.MACRO_INTERVAL_MILLISECONDS.get());
     }
 

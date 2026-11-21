@@ -167,6 +167,7 @@ public final class MacroBuilderScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        enabledButton.setMessage(enabledText());
         renderBackground(graphics);
         super.render(graphics, mouseX, mouseY, partialTick);
         int centerX = width / 2;

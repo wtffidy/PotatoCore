@@ -15,6 +15,9 @@ public final class PotatoCoreScreen extends Screen {
     private EditBox secondsInput;
     private EditBox millisecondsInput;
     private boolean editingLeftInterval = true;
+    private Button leftToggleButton;
+    private Button rightToggleButton;
+    private Button rightModeButton;
 
     public PotatoCoreScreen() {
         super(Component.literal("PotatoCore"));
@@ -25,17 +28,17 @@ public final class PotatoCoreScreen extends Screen {
         int centerX = width / 2;
         int top = height / 2 - 118;
 
-        addRenderableWidget(Button.builder(leftToggleText(), button -> {
+        leftToggleButton = addRenderableWidget(Button.builder(leftToggleText(), button -> {
             ClickerController.toggleLeft();
             button.setMessage(leftToggleText());
         }).bounds(centerX - 145, top, 140, 20).build());
 
-        addRenderableWidget(Button.builder(rightToggleText(), button -> {
+        rightToggleButton = addRenderableWidget(Button.builder(rightToggleText(), button -> {
             ClickerController.toggleRight();
             button.setMessage(rightToggleText());
         }).bounds(centerX + 5, top, 140, 20).build());
 
-        addRenderableWidget(Button.builder(rightModeText(), button -> {
+        rightModeButton = addRenderableWidget(Button.builder(rightModeText(), button -> {
             ClickerController.cycleRightMode();
             button.setMessage(rightModeText());
             if (!editingLeftInterval) {
@@ -43,7 +46,8 @@ public final class PotatoCoreScreen extends Screen {
             }
         }).bounds(centerX - 145, top + 28, 290, 20).build());
 
-        addRenderableWidget(Button.builder(intervalTargetText(), button -> {
+        addRenderableWidget(Button.builder(Component.literal("Editing interval: " + (editingLeftInterval
+                ? "Left Click" : ClickerController.getRightMode().getDisplayName())), button -> {
             editingLeftInterval = !editingLeftInterval;
             button.setMessage(intervalTargetText());
             loadIntervalFields();
@@ -168,6 +172,10 @@ public final class PotatoCoreScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        leftToggleButton.setMessage(leftToggleText());
+        rightToggleButton.setMessage(rightToggleText());
+        rightModeButton.setMessage(rightModeText());
+
         renderBackground(graphics);
         super.render(graphics, mouseX, mouseY, partialTick);
         int centerX = width / 2;
