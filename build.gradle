@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'com.tato.potatocore'
-version = '0.1.0'
+version = project.findProperty('modVersion') ?: '0.1.0'
 archivesBaseName = 'PotatoCore'
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
@@ -44,7 +44,7 @@ jar {
                 'Specification-Vendor': 'Tato',
                 'Specification-Version': '1',
                 'Implementation-Title': project.name,
-                'Implementation-Version': project.jar.archiveVersion,
+                'Implementation-Version': project.version.toString(),
                 'Implementation-Vendor': 'Tato'
         ])
     }
