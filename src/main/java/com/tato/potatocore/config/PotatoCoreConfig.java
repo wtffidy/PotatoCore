@@ -4,6 +4,7 @@ import net.minecraftforge.common.ForgeConfigSpec;
 
 public final class PotatoCoreConfig {
     public static final ForgeConfigSpec SPEC;
+
     public static final ForgeConfigSpec.IntValue LEFT_MINUTES;
     public static final ForgeConfigSpec.IntValue LEFT_SECONDS;
     public static final ForgeConfigSpec.IntValue LEFT_MILLISECONDS;
@@ -16,10 +17,14 @@ public final class PotatoCoreConfig {
     public static final ForgeConfigSpec.IntValue SIEVE_MINUTES;
     public static final ForgeConfigSpec.IntValue SIEVE_SECONDS;
     public static final ForgeConfigSpec.IntValue SIEVE_MILLISECONDS;
-    public static final ForgeConfigSpec.ConfigValue<String> BLOOD_MAGIC_ITEM_ID;
-    public static final ForgeConfigSpec.IntValue BLOOD_MAGIC_STOP_HEARTS;
-    public static final ForgeConfigSpec.IntValue BLOOD_MAGIC_INTERVAL_MILLISECONDS;
-    public static final ForgeConfigSpec.BooleanValue BLOOD_MAGIC_AUTO_RESUME;
+
+    public static final ForgeConfigSpec.ConfigValue<String> MACRO_ACTION;
+    public static final ForgeConfigSpec.BooleanValue MACRO_REQUIRE_HELD_ITEM;
+    public static final ForgeConfigSpec.ConfigValue<String> MACRO_REQUIRED_ITEM_ID;
+    public static final ForgeConfigSpec.BooleanValue MACRO_HEALTH_GUARD_ENABLED;
+    public static final ForgeConfigSpec.IntValue MACRO_STOP_HEARTS;
+    public static final ForgeConfigSpec.IntValue MACRO_INTERVAL_MILLISECONDS;
+    public static final ForgeConfigSpec.BooleanValue MACRO_AUTO_RESUME;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -39,13 +44,14 @@ public final class PotatoCoreConfig {
         SIEVE_MILLISECONDS = builder.defineInRange("sieveMilliseconds", 250, 0, 999);
         builder.pop();
 
-        builder.push("macros");
-        builder.push("bloodMagicSacrificialKnife");
-        BLOOD_MAGIC_ITEM_ID = builder.define("requiredItemId", "");
-        BLOOD_MAGIC_STOP_HEARTS = builder.defineInRange("stopAtHearts", 1, 1, 10);
-        BLOOD_MAGIC_INTERVAL_MILLISECONDS = builder.defineInRange("intervalMilliseconds", 250, 1, 60000);
-        BLOOD_MAGIC_AUTO_RESUME = builder.define("autoResumeAfterHealing", true);
-        builder.pop();
+        builder.push("macroBuilder");
+        MACRO_ACTION = builder.define("action", "RIGHT_CLICK");
+        MACRO_REQUIRE_HELD_ITEM = builder.define("requireHeldItem", true);
+        MACRO_REQUIRED_ITEM_ID = builder.define("requiredItemId", "");
+        MACRO_HEALTH_GUARD_ENABLED = builder.define("healthGuardEnabled", true);
+        MACRO_STOP_HEARTS = builder.defineInRange("stopAtHearts", 1, 1, 10);
+        MACRO_INTERVAL_MILLISECONDS = builder.defineInRange("intervalMilliseconds", 250, 1, 60000);
+        MACRO_AUTO_RESUME = builder.define("autoResumeAfterHealing", true);
         builder.pop();
 
         SPEC = builder.build();

@@ -13,9 +13,11 @@ public final class ClientModEvents {
 
     @SubscribeEvent
     public static void registerKeyMappings(RegisterKeyMappingsEvent event) {
-        event.register(ClientKeyMappings.TOGGLE_CLICKER);
-        event.register(ClientKeyMappings.NEXT_CLICK_MODE);
-        event.register(ClientKeyMappings.OPEN_MAIN_MENU);
+        event.register(ClientKeyMappings.TOGGLE_LEFT_CLICK);
+        event.register(ClientKeyMappings.TOGGLE_RIGHT_CLICK);
         event.register(ClientKeyMappings.OPEN_MACRO_BUILDER);
+        event.register(ClientKeyMappings.NEXT_RIGHT_MODE);
+        event.register(ClientKeyMappings.TOGGLE_MACRO);
+        event.register(ClientKeyMappings.OPEN_MAIN_MENU);
     }
 }

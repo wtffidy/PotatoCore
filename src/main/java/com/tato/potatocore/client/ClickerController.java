@@ -6,74 +6,67 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 
 public final class ClickerController {
-    private static boolean enabled;
-    private static boolean controllingSneak;
-    private static ClickMode mode = ClickMode.LEFT;
-    private static long nextClickAt;
+    private static boolean leftEnabled;
+    private static boolean rightEnabled;
+    private static ClickMode rightMode = ClickMode.RIGHT;
+    private static long nextLeftClickAt;
+    private static long nextRightClickAt;
 
     private ClickerController() {
     }
 
-    public static void toggle() {
-        enabled = !enabled;
-        nextClickAt = 0L;
-        if (!enabled) {
-            releaseSneak();
-        }
+    public static void toggleLeft() {
+        leftEnabled = !leftEnabled;
+        nextLeftClickAt = 0L;
     }
 
-    public static void cycleMode() {
-        mode = mode.next();
-        nextClickAt = 0L;
-        if (!mode.usesSneak()) {
-            releaseSneak();
-        }
+    public static void toggleRight() {
+        rightEnabled = !rightEnabled;
+        nextRightClickAt = 0L;
+        updateSneakState();
+    }
+
+    public static void cycleRightMode() {
+        rightMode = rightMode.nextRightMode();
+        nextRightClickAt = 0L;
+        updateSneakState();
     }
 
     public static void tick() {
-        if (!enabled) {
-            releaseSneak();
-            return;
-        }
-
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null || minecraft.level == null || minecraft.screen != null || minecraft.isPaused()) {
-            releaseSneak();
+            SneakKeyController.setClickerSneaking(false);
             return;
         }
 
-        if (mode.usesSneak()) {
-            minecraft.options.keyShift.setDown(true);
-            controllingSneak = true;
-        } else {
-            releaseSneak();
-        }
+        updateSneakState();
 
         long now = Util.getMillis();
-        if (now < nextClickAt) {
-            return;
+        if (leftEnabled && now >= nextLeftClickAt) {
+            KeyMapping.click(minecraft.options.keyAttack.getKey());
+            nextLeftClickAt = now + getIntervalMillis(ClickMode.LEFT);
         }
 
-        KeyMapping mapping = mode.usesLeftClick() ? minecraft.options.keyAttack : minecraft.options.keyUse;
-        KeyMapping.click(mapping.getKey());
-        nextClickAt = now + getIntervalMillis(mode);
-    }
-
-    private static void releaseSneak() {
-        if (!controllingSneak) {
-            return;
+        if (rightEnabled && now >= nextRightClickAt) {
+            KeyMapping.click(minecraft.options.keyUse.getKey());
+            nextRightClickAt = now + getIntervalMillis(rightMode);
         }
-
-        Minecraft.getInstance().options.keyShift.setDown(false);
-        controllingSneak = false;
     }
 
-    public static boolean isEnabled() {
-        return enabled;
+    private static void updateSneakState() {
+        SneakKeyController.setClickerSneaking(rightEnabled && rightMode.usesSneak());
     }
 
-    public static ClickMode getMode() {
-        return mode;
+    public static boolean isLeftEnabled() {
+        return leftEnabled;
+    }
+
+    public static boolean isRightEnabled() {
+        return rightEnabled;
+    }
+
+    public static ClickMode getRightMode() {
+        return rightMode;
     }
 
     public static long getIntervalMillis(ClickMode clickMode) {

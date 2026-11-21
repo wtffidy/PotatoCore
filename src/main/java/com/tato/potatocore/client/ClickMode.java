@@ -16,9 +16,12 @@ public enum ClickMode {
         return displayName;
     }
 
-    public ClickMode next() {
-        ClickMode[] modes = values();
-        return modes[(ordinal() + 1) % modes.length];
+    public ClickMode nextRightMode() {
+        return switch (this) {
+            case RIGHT -> PEBBLES;
+            case PEBBLES -> SIEVE;
+            case SIEVE, LEFT -> RIGHT;
+        };
     }
 
     public boolean usesLeftClick() {

@@ -14,6 +14,7 @@ public final class PotatoCoreScreen extends Screen {
     private EditBox minutesInput;
     private EditBox secondsInput;
     private EditBox millisecondsInput;
+    private boolean editingLeftInterval = true;
 
     public PotatoCoreScreen() {
         super(Component.literal("PotatoCore"));
@@ -22,20 +23,35 @@ public final class PotatoCoreScreen extends Screen {
     @Override
     protected void init() {
         int centerX = width / 2;
-        int top = height / 2 - 90;
-        addRenderableWidget(Button.builder(toggleText(), button -> {
-            ClickerController.toggle();
-            button.setMessage(toggleText());
-        }).bounds(centerX - 100, top, 200, 20).build());
-        addRenderableWidget(Button.builder(modeText(), button -> {
-            ClickerController.cycleMode();
-            button.setMessage(modeText());
-            loadIntervalFields();
-        }).bounds(centerX - 100, top + 27, 200, 20).build());
+        int top = height / 2 - 118;
 
-        minutesInput = new EditBox(font, centerX - 100, top + 76, 58, 20, Component.literal("Minutes"));
-        secondsInput = new EditBox(font, centerX - 29, top + 76, 58, 20, Component.literal("Seconds"));
-        millisecondsInput = new EditBox(font, centerX + 42, top + 76, 58, 20, Component.literal("Milliseconds"));
+        addRenderableWidget(Button.builder(leftToggleText(), button -> {
+            ClickerController.toggleLeft();
+            button.setMessage(leftToggleText());
+        }).bounds(centerX - 145, top, 140, 20).build());
+
+        addRenderableWidget(Button.builder(rightToggleText(), button -> {
+            ClickerController.toggleRight();
+            button.setMessage(rightToggleText());
+        }).bounds(centerX + 5, top, 140, 20).build());
+
+        addRenderableWidget(Button.builder(rightModeText(), button -> {
+            ClickerController.cycleRightMode();
+            button.setMessage(rightModeText());
+            if (!editingLeftInterval) {
+                loadIntervalFields();
+            }
+        }).bounds(centerX - 145, top + 28, 290, 20).build());
+
+        addRenderableWidget(Button.builder(intervalTargetText(), button -> {
+            editingLeftInterval = !editingLeftInterval;
+            button.setMessage(intervalTargetText());
+            loadIntervalFields();
+        }).bounds(centerX - 145, top + 59, 290, 20).build());
+
+        minutesInput = new EditBox(font, centerX - 145, top + 105, 80, 20, Component.literal("Minutes"));
+        secondsInput = new EditBox(font, centerX - 45, top + 105, 80, 20, Component.literal("Seconds"));
+        millisecondsInput = new EditBox(font, centerX + 55, top + 105, 90, 20, Component.literal("Milliseconds"));
         minutesInput.setMaxLength(3);
         secondsInput.setMaxLength(2);
         millisecondsInput.setMaxLength(3);
@@ -44,28 +60,44 @@ public final class PotatoCoreScreen extends Screen {
         addRenderableWidget(millisecondsInput);
 
         addRenderableWidget(Button.builder(Component.literal("Save interval"), button -> saveInterval())
-                .bounds(centerX - 100, top + 106, 200, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Macro Builder"), button ->
+                .bounds(centerX - 145, top + 135, 140, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Macro Builder (F8)"), button ->
                 Minecraft.getInstance().setScreen(new MacroBuilderScreen()))
-                .bounds(centerX - 100, top + 136, 200, 20).build());
+                .bounds(centerX + 5, top + 135, 140, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Done"), button -> onClose())
-                .bounds(centerX - 100, top + 166, 200, 20).build());
+                .bounds(centerX - 145, top + 165, 290, 20).build());
+
         loadIntervalFields();
     }
 
-    private Component toggleText() {
-        return Component.literal(ClickerController.isEnabled() ? "Stop clicker (F6)" : "Start clicker (F6)");
+    private Component leftToggleText() {
+        return Component.literal("Left Click: " + (ClickerController.isLeftEnabled() ? "ON (F6)" : "OFF (F6)"));
     }
 
-    private Component modeText() {
-        return Component.literal("Mode: " + ClickerController.getMode().getDisplayName() + " (F7)");
+    private Component rightToggleText() {
+        return Component.literal("Right Click: " + (ClickerController.isRightEnabled() ? "ON (F7)" : "OFF (F7)"));
+    }
+
+    private Component rightModeText() {
+        return Component.literal("Right Profile: " + ClickerController.getRightMode().getDisplayName() + " (F9)");
+    }
+
+    private Component intervalTargetText() {
+        return Component.literal("Editing interval: " + (editingLeftInterval
+                ? "Left Click"
+                : ClickerController.getRightMode().getDisplayName()));
+    }
+
+    private ClickMode getEditingMode() {
+        return editingLeftInterval ? ClickMode.LEFT : ClickerController.getRightMode();
     }
 
     private void loadIntervalFields() {
-        ClickMode mode = ClickerController.getMode();
+        ClickMode mode = getEditingMode();
         int minutes;
         int seconds;
         int milliseconds;
+
         switch (mode) {
             case LEFT -> {
                 minutes = PotatoCoreConfig.LEFT_MINUTES.get();
@@ -89,6 +121,7 @@ public final class PotatoCoreScreen extends Screen {
             }
             default -> throw new IllegalStateException("Unsupported click mode: " + mode);
         }
+
         minutesInput.setValue(Integer.toString(minutes));
         secondsInput.setValue(Integer.toString(seconds));
         millisecondsInput.setValue(Integer.toString(milliseconds));
@@ -98,7 +131,8 @@ public final class PotatoCoreScreen extends Screen {
         int minutes = parse(minutesInput.getValue(), 0, 999);
         int seconds = parse(secondsInput.getValue(), 0, 59);
         int milliseconds = parse(millisecondsInput.getValue(), 0, 999);
-        switch (ClickerController.getMode()) {
+
+        switch (getEditingMode()) {
             case LEFT -> {
                 PotatoCoreConfig.LEFT_MINUTES.set(minutes);
                 PotatoCoreConfig.LEFT_SECONDS.set(seconds);
@@ -120,6 +154,7 @@ public final class PotatoCoreScreen extends Screen {
                 PotatoCoreConfig.SIEVE_MILLISECONDS.set(milliseconds);
             }
         }
+
         PotatoCoreConfig.SPEC.save();
     }
 
@@ -136,10 +171,10 @@ public final class PotatoCoreScreen extends Screen {
         renderBackground(graphics);
         super.render(graphics, mouseX, mouseY, partialTick);
         int centerX = width / 2;
-        int top = height / 2 - 90;
+        int top = height / 2 - 118;
         graphics.drawCenteredString(font, title, centerX, top - 23, 0xFFFFFF);
-        graphics.drawCenteredString(font, "Interval: minutes / seconds / milliseconds", centerX, top + 59, 0xA0A0A0);
-        graphics.drawCenteredString(font, "O: menu  |  F6: toggle  |  F7: mode  |  F8: macros", centerX, top + 203, 0xA0A0A0);
+        graphics.drawString(font, "Separate toggles, separate intervals. Both can run together.", centerX - 145, top + 86, 0xA0A0A0);
+        graphics.drawCenteredString(font, "O: menu | F6: left | F7: right | F9: right profile | F10: macro", centerX, top + 201, 0xA0A0A0);
     }
 
     @Override

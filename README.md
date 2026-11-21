@@ -2,7 +2,7 @@
 
 **A configurable automation toolkit for Minecraft 1.20.1 / Forge 47.4.28.**
 
-PotatoCore is a client-side utility mod focused on reusable automation profiles and an in-game macro builder.
+PotatoCore is a client-side utility mod focused on reusable click profiles and configurable macros.
 
 ## Target environment
 
@@ -11,40 +11,41 @@ PotatoCore is a client-side utility mod focused on reusable automation profiles 
 - Java: **17**
 - Project Infinity pack: **0.1** (manifest version **0.0.52.1** supplied during setup)
 
-## Current features
-
-### Click automation
+## Click automation
 
 | Key | Action |
 | --- | --- |
-| F6 | Toggle click automation |
-| F7 | Cycle click mode |
+| F6 | Toggle left-click automation |
+| F7 | Toggle right-click automation |
+| F9 | Cycle right-click profile |
 | O | Open PotatoCore menu |
 | F8 | Open Macro Builder |
+| F10 | Toggle the configured macro |
 
-Modes:
+Left- and right-click automation have independent enable states and independent timing. They can run at the same time.
 
-- **Left Click**: repeated attack input.
+Right-click profiles:
+
 - **Right Click**: repeated use input.
-- **Pebbles**: holds sneak while repeating right-click.
-- **Sieve**: repeated right-click.
+- **Pebbles**: holds sneak and repeats right-click.
+- **Sieve**: repeats right-click without sneak.
 
-Each mode has its own interval, configured with minutes, seconds, and milliseconds. The clicker pauses while a screen is open or the game is paused. The sneak key is released when the clicker stops or leaves Pebbles mode.
+Every click profile has an independent interval configured in minutes, seconds, and milliseconds. Automation pauses while a screen is open or the game is paused. Sneak state is shared between Pebbles and macro actions so one feature does not release sneak while the other still needs it.
 
-### Macro Builder: Blood Magic Sacrificial Knife
+## Macro Builder
 
-The initial macro profile supports:
+The in-game Macro Builder edits a reusable action profile:
 
-- Enable/disable toggle (runtime only; macros do not silently reactivate on the next game launch).
-- Required main-hand item registry ID.
-- Button to read the registry ID from the item currently held.
-- Health stop threshold, configured in hearts (one heart is two health points).
-- Right-click interval in milliseconds.
-- Optional automatic resume after health recovers above the threshold.
+- Action: left click, right click, or sneak + right click.
+- Optional exact main-hand item requirement.
+- Optional health safety guard.
+- Configurable stop threshold in hearts (one heart = two health points).
+- Configurable action interval in milliseconds.
+- Optional auto-resume once health recovers above the threshold.
 
-The macro checks the player's health **before every click**. At or below the configured threshold it stops issuing right-clicks. It only runs while the configured item is in the main hand.
+The **Load Blood Magic Knife preset** selects right-click, requires the item currently held in the main hand, enables the health guard, sets the stop threshold to one heart, and enables auto-resume. Hold the Sacrificial Knife before loading the preset, or use **Use item in main hand** to capture its registry ID.
 
-The registry ID is intentionally not hardcoded until it is verified against the installed Project Infinity mod list. Hold the Sacrificial Knife and press **Use item in main hand** in the Macro Builder to populate the correct ID.
+Macro activation is session-only and never silently turns itself on after restarting Minecraft. F10 toggles the macro after its settings are saved.
 
 ## Build
 
@@ -52,10 +53,10 @@ Install a Java 17 JDK and Gradle 8.1.1, then run:
 
     gradle build --no-daemon
 
-The compiled mod will be written to build/libs/. GitHub Actions runs the same build and uploads the resulting JAR as a workflow artifact.
+The compiled mod will be written to build/libs/. GitHub Actions runs the same build and uploads the JAR as a workflow artifact.
 
-## Integration notes
+## Integration status
 
-The current Pebbles and Sieve modes provide the input behavior only. Specific Ex Deorum / Just Dire Things block and fake-player integrations still need testing against the installed mod versions. They are not claimed to be complete yet.
+Pebbles and Sieve currently provide repeat-input profiles. Mod-specific Ex Deorum / Just Dire Things automation and fake-player integrations need testing against the exact installed versions. A client-side click macro cannot override server-side fake-player or automated-sieve restrictions; configure the relevant mod/server settings where required.
 
-The macro framework is being kept modular so more preset types and user-defined action/condition steps can be added without rewriting the clicker engine.
+The macro action/condition settings are the base for expanding into a multi-step visual macro editor.
