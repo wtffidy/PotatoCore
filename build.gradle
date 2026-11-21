@@ -49,3 +49,62 @@ jar {
         ])
     }
 }
+
+tasks.register('installToCurseForge') {
+    group = 'build'
+    description = 'Copies the built PotatoCore JAR into the Project Infinity 0.1 CurseForge instance.'
+    dependsOn tasks.named('jar')
+    doLast {
+        if (!System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')) {
+            throw new GradleException('CurseForge auto-install is currently supported on Windows only.')
+        }
+
+        File userHome = new File(System.getProperty('user.home'))
+        String appData = System.getenv('APPDATA')
+        String localAppData = System.getenv('LOCALAPPDATA')
+        List<File> roots = []
+        String configuredRoot = project.findProperty('curseforgeInstancesDir')?.toString()
+        if (configuredRoot) roots.add(new File(configuredRoot))
+        String environmentRoot = System.getenv('CURSEFORGE_INSTANCES_DIR')
+        if (environmentRoot) roots.add(new File(environmentRoot))
+        roots.add(new File(userHome, 'curseforge/minecraft/Instances'))
+        roots.add(new File(userHome, 'CurseForge/minecraft/Instances'))
+        if (appData) {
+            roots.add(new File(appData, 'CurseForge/Minecraft/Instances'))
+            roots.add(new File(appData, 'CurseForge/minecraft/Instances'))
+        }
+        if (localAppData) {
+            roots.add(new File(localAppData, 'CurseForge/Minecraft/Instances'))
+            roots.add(new File(localAppData, 'CurseForge/minecraft/Instances'))
+        }
+        roots.add(new File('C:/CurseForge/minecraft/Instances'))
+        roots.add(new File('D:/CurseForge/minecraft/Instances'))
+
+        File instance = null
+        for (File root : roots.unique()) {
+            File candidate = new File(root, 'Project Infinity 0.1')
+            if (candidate.isDirectory()) {
+                instance = candidate
+                break
+            }
+        }
+        if (instance == null) {
+            throw new GradleException('CurseForge instance "Project Infinity 0.1" was not found. Set CURSEFORGE_INSTANCES_DIR to your Instances folder.')
+        }
+
+        File mods = new File(instance, 'mods')
+        if (!mods.isDirectory() && !mods.mkdirs()) {
+            throw new GradleException('Could not create mods folder: ' + mods.absolutePath)
+        }
+        File builtJar = tasks.named('jar').get().archiveFile.get().asFile
+        if (!builtJar.isFile()) throw new GradleException('Built JAR was not found: ' + builtJar.absolutePath)
+        copy {
+            from builtJar
+            into mods
+        }
+        println ''
+        println 'PotatoCore installed successfully:'
+        println new File(mods, builtJar.name).absolutePath
+        println 'Restart Minecraft if the instance is currently running.'
+    }
+}
