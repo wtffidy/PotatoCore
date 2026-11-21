@@ -35,7 +35,7 @@ Each mode has its own interval, configured with minutes, seconds, and millisecon
 
 The initial macro profile supports:
 
-- Enable/disable toggle.
+- Enable/disable toggle (runtime only; macros do not silently reactivate on the next game launch).
 - Required main-hand item registry ID.
 - Button to read the registry ID from the item currently held.
 - Health stop threshold, configured in hearts (one heart is two health points).
