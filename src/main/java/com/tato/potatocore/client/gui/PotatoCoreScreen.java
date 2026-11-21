@@ -115,7 +115,7 @@ public final class PotatoCoreScreen extends Screen {
     }
 
     private Component autoFishText() {
-        return Component.literal("Auto Fish: " + (AutoFishController.isEnabled() ? "ON (F11)" : "OFF (F11)"));
+        return Component.literal("Auto Fish: " + (AutoFishController.isEnabled() ? "ON (F12)" : "OFF (F12)"));
     }
 
     private ClickMode getEditingMode() {
@@ -238,7 +238,7 @@ public final class PotatoCoreScreen extends Screen {
         graphics.drawCenteredString(font,
                 "Macro: " + MacroController.getStatus() + "   |   Auto Fish: " + AutoFishController.getStatus(),
                 width / 2, top + 242, 0xFFB7C7D8);
-        graphics.drawCenteredString(font, "O: menu   F6: left   F7: right   F8: macros   F9: profile   F10: macro   F11: fish",
+        graphics.drawCenteredString(font, "O: menu   F6: left   F7: right   F8: macros   F9: profile   F10: macro   F12: fish",
                 width / 2, top + 265, 0xFF8496AA);
     }
 

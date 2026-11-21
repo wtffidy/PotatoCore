@@ -18,7 +18,7 @@ PotatoCore is a client-side utility mod focused on reusable click profiles and c
 | F6 | Toggle left-click automation |
 | F7 | Toggle right-click automation |
 | F9 | Cycle right-click profile |
-| O | Open PotatoCore menu |\n| F11 | Toggle Auto Fish |
+| O | Open PotatoCore menu |\n| F12 | Toggle Auto Fish |
 | F8 | Open Macro Builder |
 | F10 | Toggle the configured macro |
 
