@@ -12,6 +12,8 @@
   "key.potato_core.toggle_auto_fish": "Toggle Auto Fish",
   "key.potato_core.open_main_menu": "Open PotatoCore Menu",
   "key.potato_core.toggle_sprint": "Toggle Sprint",
+  "key.potato_core.toggle_sneak": "Toggle Sneak",
   "key.potato_core.hold_to_zoom": "Hold to Zoom",
-  "key.potato_core.toggle_status_hud": "Toggle PotatoCore Status HUD"
+  "key.potato_core.toggle_status_hud": "Toggle PotatoCore Status HUD",
+  "key.potato_core.copy_coordinates": "Copy Coordinates and Dimension"
 }
