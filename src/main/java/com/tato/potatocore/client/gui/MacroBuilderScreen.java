@@ -23,11 +23,12 @@ public final class MacroBuilderScreen extends Screen {
     protected void init() {
         int centerX = width / 2;
         int top = height / 2 - 112;
+
         addRenderableWidget(Button.builder(enabledText(), button -> {
-            PotatoCoreConfig.BLOOD_MAGIC_ENABLED.set(!PotatoCoreConfig.BLOOD_MAGIC_ENABLED.get());
+            BloodMagicKnifeMacro.setEnabled(!BloodMagicKnifeMacro.isEnabled());
             button.setMessage(enabledText());
-            PotatoCoreConfig.SPEC.save();
         }).bounds(centerX - 145, top, 290, 20).build());
+
         addRenderableWidget(Button.builder(Component.literal("Preset: Blood Magic Sacrificial Knife"), button -> {})
                 .bounds(centerX - 145, top + 28, 290, 20).build());
 
@@ -36,11 +37,13 @@ public final class MacroBuilderScreen extends Screen {
         itemIdInput.setMaxLength(128);
         itemIdInput.setValue(PotatoCoreConfig.BLOOD_MAGIC_ITEM_ID.get());
         addRenderableWidget(itemIdInput);
+
         addRenderableWidget(Button.builder(Component.literal("Use item in main hand"), button -> {
             Minecraft minecraft = Minecraft.getInstance();
             if (minecraft.player == null || minecraft.player.getMainHandItem().isEmpty()) {
                 return;
             }
+
             itemIdInput.setValue(ForgeRegistries.ITEMS.getKey(minecraft.player.getMainHandItem().getItem()).toString());
         }).bounds(centerX - 145, top + 105, 290, 20).build());
 
@@ -48,6 +51,7 @@ public final class MacroBuilderScreen extends Screen {
         stopHeartsInput.setMaxLength(2);
         stopHeartsInput.setValue(Integer.toString(PotatoCoreConfig.BLOOD_MAGIC_STOP_HEARTS.get()));
         addRenderableWidget(stopHeartsInput);
+
         intervalInput = new EditBox(font, centerX + 10, top + 150, 135, 20, Component.literal("Interval ms"));
         intervalInput.setMaxLength(5);
         intervalInput.setValue(Integer.toString(PotatoCoreConfig.BLOOD_MAGIC_INTERVAL_MILLISECONDS.get()));
@@ -58,6 +62,7 @@ public final class MacroBuilderScreen extends Screen {
             button.setMessage(resumeText());
             PotatoCoreConfig.SPEC.save();
         }).bounds(centerX - 145, top + 183, 290, 20).build());
+
         addRenderableWidget(Button.builder(Component.literal("Save macro settings"), button -> save())
                 .bounds(centerX - 145, top + 213, 140, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Back"), button ->
@@ -66,8 +71,7 @@ public final class MacroBuilderScreen extends Screen {
     }
 
     private Component enabledText() {
-        return Component.literal("Blood Magic macro: " +
-                (PotatoCoreConfig.BLOOD_MAGIC_ENABLED.get() ? "Enabled" : "Disabled"));
+        return Component.literal("Blood Magic macro: " + (BloodMagicKnifeMacro.isEnabled() ? "Enabled" : "Disabled"));
     }
 
     private Component resumeText() {
