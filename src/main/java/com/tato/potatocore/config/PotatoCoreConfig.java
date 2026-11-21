@@ -25,6 +25,7 @@ public final class PotatoCoreConfig {
     public static final ForgeConfigSpec.IntValue MACRO_STOP_HEARTS;
     public static final ForgeConfigSpec.IntValue MACRO_INTERVAL_MILLISECONDS;
     public static final ForgeConfigSpec.BooleanValue MACRO_AUTO_RESUME;
+    public static final ForgeConfigSpec.BooleanValue AUTO_UPDATE_ENABLED;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -52,6 +53,10 @@ public final class PotatoCoreConfig {
         MACRO_STOP_HEARTS = builder.defineInRange("stopAtHearts", 1, 1, 10);
         MACRO_INTERVAL_MILLISECONDS = builder.defineInRange("intervalMilliseconds", 250, 1, 60000);
         MACRO_AUTO_RESUME = builder.define("autoResumeAfterHealing", true);
+        builder.pop();
+
+        builder.push("updates");
+        AUTO_UPDATE_ENABLED = builder.define("automaticUpdates", true);
         builder.pop();
 
         SPEC = builder.build();
