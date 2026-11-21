@@ -171,16 +171,21 @@ public final class MacroBuilderScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         enabledButton.setMessage(enabledText());
-        renderBackground(graphics);
-        super.render(graphics, mouseX, mouseY, partialTick);
+        graphics.fillGradient(0, 0, width, height, 0xFF101827, 0xFF080B12);
         int centerX = width / 2;
         int top = height / 2 - 142;
-        graphics.drawCenteredString(font, title, centerX, top - 22, 0xFFFFFF);
-        graphics.drawString(font, "Only runs while the selected main-hand condition is met:", centerX - 150, top + 118, 0xA0A0A0);
-        graphics.drawString(font, "Stop at hearts", centerX - 150, top + 217, 0xA0A0A0);
-        graphics.drawString(font, "Interval (ms)", centerX + 10, top + 217, 0xA0A0A0);
-        graphics.drawCenteredString(font, "Status: " + MacroController.getStatus(), centerX, top + 322, 0xA0A0A0);
-        graphics.drawCenteredString(font, "F8: open builder | F10: toggle macro | one heart = 2 HP", centerX, top + 336, 0xA0A0A0);
+        graphics.fill(centerX - 165, top - 10, centerX + 165, top + 360, 0xF0182232);
+        graphics.fill(centerX - 165, top - 10, centerX + 165, top - 7, 0xFFB77B36);
+        super.render(graphics, mouseX, mouseY, partialTick);
+        graphics.drawCenteredString(font, Component.literal("MACRO WORKSHOP").withStyle(style -> style.withBold(true)),
+                centerX, top - 22, 0xFFF1D5A5);
+        graphics.drawString(font, "Only runs while the selected main-hand condition is met:",
+                centerX - 150, top + 118, 0xFF9CAFC4);
+        graphics.drawString(font, "Stop at hearts", centerX - 150, top + 217, 0xFF9CAFC4);
+        graphics.drawString(font, "Interval (ms)", centerX + 10, top + 217, 0xFF9CAFC4);
+        graphics.drawCenteredString(font, "Status: " + MacroController.getStatus(), centerX, top + 322, 0xFFB7C7D8);
+        graphics.drawCenteredString(font, "F8: open builder | F10: toggle macro | one heart = 2 HP",
+                centerX, top + 336, 0xFF8496AA);
     }
 
     @Override

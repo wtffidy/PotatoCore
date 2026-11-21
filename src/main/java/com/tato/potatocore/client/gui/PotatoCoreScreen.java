@@ -1,7 +1,9 @@
 package com.tato.potatocore.client.gui;
 
+import com.tato.potatocore.client.AutoFishController;
 import com.tato.potatocore.client.ClickMode;
 import com.tato.potatocore.client.ClickerController;
+import com.tato.potatocore.client.macro.MacroController;
 import com.tato.potatocore.config.PotatoCoreConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -14,12 +16,14 @@ public final class PotatoCoreScreen extends Screen {
     private EditBox minutesInput;
     private EditBox secondsInput;
     private EditBox millisecondsInput;
+    private EditBox fishDelayInput;
     private boolean editingLeftInterval = true;
     private ClickMode displayedRightMode = ClickMode.RIGHT;
     private Button leftToggleButton;
     private Button rightToggleButton;
     private Button rightModeButton;
     private Button intervalTargetButton;
+    private Button autoFishButton;
 
     public PotatoCoreScreen() {
         super(Component.literal("PotatoCore"));
@@ -28,18 +32,19 @@ public final class PotatoCoreScreen extends Screen {
     @Override
     protected void init() {
         int centerX = width / 2;
-        int top = height / 2 - 118;
+        int left = centerX - 210;
+        int top = Math.max(12, (height - 326) / 2);
         displayedRightMode = ClickerController.getRightMode();
 
         leftToggleButton = addRenderableWidget(Button.builder(leftToggleText(), button -> {
             ClickerController.toggleLeft();
             button.setMessage(leftToggleText());
-        }).bounds(centerX - 145, top, 140, 20).build());
+        }).bounds(left, top + 34, 205, 20).build());
 
         rightToggleButton = addRenderableWidget(Button.builder(rightToggleText(), button -> {
             ClickerController.toggleRight();
             button.setMessage(rightToggleText());
-        }).bounds(centerX + 5, top, 140, 20).build());
+        }).bounds(left + 215, top + 34, 205, 20).build());
 
         rightModeButton = addRenderableWidget(Button.builder(rightModeText(), button -> {
             ClickerController.cycleRightMode();
@@ -49,17 +54,17 @@ public final class PotatoCoreScreen extends Screen {
             if (!editingLeftInterval) {
                 loadIntervalFields();
             }
-        }).bounds(centerX - 145, top + 28, 290, 20).build());
+        }).bounds(left, top + 61, 420, 20).build());
 
         intervalTargetButton = addRenderableWidget(Button.builder(intervalTargetText(), button -> {
             editingLeftInterval = !editingLeftInterval;
             button.setMessage(intervalTargetText());
             loadIntervalFields();
-        }).bounds(centerX - 145, top + 59, 290, 20).build());
+        }).bounds(left, top + 88, 420, 20).build());
 
-        minutesInput = new EditBox(font, centerX - 145, top + 105, 80, 20, Component.literal("Minutes"));
-        secondsInput = new EditBox(font, centerX - 45, top + 105, 80, 20, Component.literal("Seconds"));
-        millisecondsInput = new EditBox(font, centerX + 55, top + 105, 90, 20, Component.literal("Milliseconds"));
+        minutesInput = new EditBox(font, left + 50, top + 128, 90, 20, Component.literal("Minutes"));
+        secondsInput = new EditBox(font, left + 160, top + 128, 90, 20, Component.literal("Seconds"));
+        millisecondsInput = new EditBox(font, left + 270, top + 128, 100, 20, Component.literal("Milliseconds"));
         minutesInput.setMaxLength(3);
         secondsInput.setMaxLength(2);
         millisecondsInput.setMaxLength(3);
@@ -67,13 +72,26 @@ public final class PotatoCoreScreen extends Screen {
         addRenderableWidget(secondsInput);
         addRenderableWidget(millisecondsInput);
 
-        addRenderableWidget(Button.builder(Component.literal("Save interval"), button -> saveInterval())
-                .bounds(centerX - 145, top + 135, 140, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Macro Builder (F8)"), button ->
+        addRenderableWidget(Button.builder(Component.literal("Save click interval"), button -> saveSettings())
+                .bounds(left, top + 155, 205, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Open Macro Builder"), button ->
                 Minecraft.getInstance().setScreen(new MacroBuilderScreen()))
-                .bounds(centerX + 5, top + 135, 140, 20).build());
+                .bounds(left + 215, top + 155, 205, 20).build());
+
+        autoFishButton = addRenderableWidget(Button.builder(autoFishText(), button -> {
+            AutoFishController.toggle();
+            button.setMessage(autoFishText());
+        }).bounds(left, top + 188, 270, 20).build());
+
+        fishDelayInput = new EditBox(font, left + 280, top + 188, 140, 20, Component.literal("Recast delay ms"));
+        fishDelayInput.setMaxLength(5);
+        fishDelayInput.setValue(Integer.toString(PotatoCoreConfig.AUTO_FISH_RECAST_DELAY_MS.get()));
+        addRenderableWidget(fishDelayInput);
+
+        addRenderableWidget(Button.builder(Component.literal("Save fish delay"), button -> saveFishDelay())
+                .bounds(left, top + 215, 205, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Done"), button -> onClose())
-                .bounds(centerX - 145, top + 165, 290, 20).build());
+                .bounds(left + 215, top + 215, 205, 20).build());
 
         loadIntervalFields();
     }
@@ -94,6 +112,10 @@ public final class PotatoCoreScreen extends Screen {
         return Component.literal("Editing interval: " + (editingLeftInterval
                 ? "Left Click"
                 : ClickerController.getRightMode().getDisplayName()));
+    }
+
+    private Component autoFishText() {
+        return Component.literal("Auto Fish: " + (AutoFishController.isEnabled() ? "ON (F11)" : "OFF (F11)"));
     }
 
     private ClickMode getEditingMode() {
@@ -135,7 +157,7 @@ public final class PotatoCoreScreen extends Screen {
         millisecondsInput.setValue(Integer.toString(milliseconds));
     }
 
-    private void saveInterval() {
+    private void saveSettings() {
         int minutes = parse(minutesInput.getValue(), 0, 999);
         int seconds = parse(secondsInput.getValue(), 0, 59);
         int milliseconds = parse(millisecondsInput.getValue(), 0, 999);
@@ -166,6 +188,12 @@ public final class PotatoCoreScreen extends Screen {
         PotatoCoreConfig.SPEC.save();
     }
 
+    private void saveFishDelay() {
+        PotatoCoreConfig.AUTO_FISH_RECAST_DELAY_MS.set(parse(fishDelayInput.getValue(), 250, 10000));
+        fishDelayInput.setValue(Integer.toString(PotatoCoreConfig.AUTO_FISH_RECAST_DELAY_MS.get()));
+        PotatoCoreConfig.SPEC.save();
+    }
+
     private static int parse(String value, int minimum, int maximum) {
         try {
             return Math.max(minimum, Math.min(maximum, Integer.parseInt(value)));
@@ -188,14 +216,30 @@ public final class PotatoCoreScreen extends Screen {
 
         leftToggleButton.setMessage(leftToggleText());
         rightToggleButton.setMessage(rightToggleText());
+        autoFishButton.setMessage(autoFishText());
 
-        renderBackground(graphics);
+        graphics.fillGradient(0, 0, width, height, 0xFF101827, 0xFF080B12);
+        int left = width / 2 - 220;
+        int top = Math.max(12, (height - 326) / 2);
+        graphics.fill(left, top, left + 440, top + 252, 0xF0182232);
+        graphics.fill(left, top, left + 440, top + 3, 0xFFB77B36);
+        graphics.fill(left + 12, top + 27, left + 428, top + 28, 0xFF35465C);
+
         super.render(graphics, mouseX, mouseY, partialTick);
-        int centerX = width / 2;
-        int top = height / 2 - 118;
-        graphics.drawCenteredString(font, title, centerX, top - 23, 0xFFFFFF);
-        graphics.drawString(font, "Separate toggles, separate intervals. Both can run together.", centerX - 145, top + 86, 0xA0A0A0);
-        graphics.drawCenteredString(font, "O: menu | F6: left | F7: right | F9: right profile | F10: macro", centerX, top + 201, 0xA0A0A0);
+
+        graphics.drawCenteredString(font, Component.literal("POTATOCORE").withStyle(style -> style.withBold(true)),
+                width / 2, top + 9, 0xFFF1D5A5);
+        graphics.drawString(font, "CLICK AUTOMATION", left + 2, top + 24, 0xFF8DA8C7);
+        graphics.drawString(font, "MINUTES", left + 58, top + 119, 0xFF9CAFC4);
+        graphics.drawString(font, "SECONDS", left + 168, top + 119, 0xFF9CAFC4);
+        graphics.drawString(font, "MILLISECONDS", left + 278, top + 119, 0xFF9CAFC4);
+        graphics.drawString(font, "FISHING UTILITY", left + 2, top + 178, 0xFF8DA8C7);
+        graphics.drawString(font, "Recast delay (ms)", left + 280, top + 178, 0xFF9CAFC4);
+        graphics.drawCenteredString(font,
+                "Macro: " + MacroController.getStatus() + "   |   Auto Fish: " + AutoFishController.getStatus(),
+                width / 2, top + 242, 0xFFB7C7D8);
+        graphics.drawCenteredString(font, "O: menu   F6: left   F7: right   F8: macros   F9: profile   F10: macro   F11: fish",
+                width / 2, top + 265, 0xFF8496AA);
     }
 
     @Override

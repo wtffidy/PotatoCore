@@ -46,6 +46,10 @@ public final class ClientForgeEvents {
             MacroController.toggle();
         }
 
+        while (ClientKeyMappings.TOGGLE_AUTO_FISH.consumeClick()) {
+            AutoFishController.toggle();
+        }
+
         while (ClientKeyMappings.OPEN_MAIN_MENU.consumeClick()) {
             minecraft.setScreen(new PotatoCoreScreen());
         }
@@ -56,5 +60,6 @@ public final class ClientForgeEvents {
 
         ClickerController.tick();
         MacroController.tick();
+        AutoFishController.tick();
     }
 }

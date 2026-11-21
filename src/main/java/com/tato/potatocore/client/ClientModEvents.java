@@ -19,6 +19,7 @@ public final class ClientModEvents {
         event.register(ClientKeyMappings.OPEN_MACRO_BUILDER);
         event.register(ClientKeyMappings.NEXT_RIGHT_MODE);
         event.register(ClientKeyMappings.TOGGLE_MACRO);
+        event.register(ClientKeyMappings.TOGGLE_AUTO_FISH);
         event.register(ClientKeyMappings.OPEN_MAIN_MENU);
     }
 

@@ -16,6 +16,8 @@ public final class ClientKeyMappings {
             "key.potato_core.next_right_mode", GLFW.GLFW_KEY_F9, CATEGORY);
     public static final KeyMapping TOGGLE_MACRO = new KeyMapping(
             "key.potato_core.toggle_macro", GLFW.GLFW_KEY_F10, CATEGORY);
+    public static final KeyMapping TOGGLE_AUTO_FISH = new KeyMapping(
+            "key.potato_core.toggle_auto_fish", GLFW.GLFW_KEY_F11, CATEGORY);
     public static final KeyMapping OPEN_MAIN_MENU = new KeyMapping(
             "key.potato_core.open_main_menu", GLFW.GLFW_KEY_O, CATEGORY);
 
