@@ -1,6 +1,7 @@
 package com.tato.potatocore.client.gui;
 
 import com.tato.potatocore.client.AutoFishController;
+import com.tato.potatocore.client.ClientKeyMappings;
 import com.tato.potatocore.client.ClickMode;
 import com.tato.potatocore.client.ClickerController;
 import com.tato.potatocore.client.UtilityController;
@@ -8,6 +9,7 @@ import com.tato.potatocore.client.ToggleSprintController;
 import com.tato.potatocore.client.macro.MacroAction;
 import com.tato.potatocore.client.macro.MacroController;
 import com.tato.potatocore.config.PotatoCoreConfig;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -295,15 +297,15 @@ public final class PotatoCoreScreen extends Screen {
     }
 
     private Component leftToggleText() {
-        return Component.literal("Left Click: " + (ClickerController.isLeftEnabled() ? "ON (F6)" : "OFF (F6)"));
+        return Component.literal("Left Click: " + (ClickerController.isLeftEnabled() ? "ON" : "OFF") + " (" + keyName(ClientKeyMappings.TOGGLE_LEFT_CLICK) + ")");
     }
 
     private Component rightToggleText() {
-        return Component.literal("Right Click: " + (ClickerController.isRightEnabled() ? "ON (F7)" : "OFF (F7)"));
+        return Component.literal("Right Click: " + (ClickerController.isRightEnabled() ? "ON" : "OFF") + " (" + keyName(ClientKeyMappings.TOGGLE_RIGHT_CLICK) + ")");
     }
 
     private Component rightModeText() {
-        return Component.literal("Right Profile: " + ClickerController.getRightMode().getDisplayName() + " (F9)");
+        return Component.literal("Right Profile: " + ClickerController.getRightMode().getDisplayName() + " (" + keyName(ClientKeyMappings.NEXT_RIGHT_MODE) + ")");
     }
 
     private Component intervalTargetText() {
@@ -313,11 +315,11 @@ public final class PotatoCoreScreen extends Screen {
     }
 
     private Component autoFishText() {
-        return Component.literal("Auto Fish: " + (AutoFishController.isEnabled() ? "ON (F12)" : "OFF (F12)"));
+        return Component.literal("Auto Fish: " + (AutoFishController.isEnabled() ? "ON" : "OFF") + " (" + keyName(ClientKeyMappings.TOGGLE_AUTO_FISH) + ")");
     }
 
     private Component macroToggleText() {
-        return Component.literal("Macro: " + (MacroController.isEnabled() ? "ON (F10)" : "OFF (F10)"));
+        return Component.literal("Macro: " + (MacroController.isEnabled() ? "ON" : "OFF") + " (" + keyName(ClientKeyMappings.TOGGLE_MACRO) + ")");
     }
 
     private Component macroActionText() {
@@ -354,7 +356,11 @@ public final class PotatoCoreScreen extends Screen {
     }
 
     private Component sprintText() {
-        return Component.literal("Toggle Sprint: " + (ToggleSprintController.isEnabled() ? "ON" : "OFF") + " (V)");
+        return Component.literal("Toggle Sprint: " + (ToggleSprintController.isEnabled() ? "ON" : "OFF") + " (" + keyName(ClientKeyMappings.TOGGLE_SPRINT) + ")");
+    }
+
+    private static String keyName(KeyMapping keyMapping) {
+        return keyMapping.getTranslatedKeyMessage().getString();
     }
 
     private ClickMode getEditingMode() {
@@ -566,7 +572,7 @@ public final class PotatoCoreScreen extends Screen {
             }
         }
 
-        graphics.drawCenteredString(font, "O: open menu   F6: left   F7: right   F8: macros   F9: profile   F10: macro   F12: fish",
+        graphics.drawCenteredString(font, "Menu [" + keyName(ClientKeyMappings.OPEN_MAIN_MENU) + "]   Clicker [" + keyName(ClientKeyMappings.TOGGLE_LEFT_CLICK) + "/" + keyName(ClientKeyMappings.TOGGLE_RIGHT_CLICK) + "]   Macro [" + keyName(ClientKeyMappings.OPEN_MACRO_BUILDER) + "/" + keyName(ClientKeyMappings.TOGGLE_MACRO) + "]   Fish [" + keyName(ClientKeyMappings.TOGGLE_AUTO_FISH) + "]",
                 width / 2, top + PANEL_HEIGHT - 14, 0xFF899BAF);
     }
 
