@@ -15,9 +15,11 @@ public final class PotatoCoreScreen extends Screen {
     private EditBox secondsInput;
     private EditBox millisecondsInput;
     private boolean editingLeftInterval = true;
+    private ClickMode displayedRightMode = ClickMode.RIGHT;
     private Button leftToggleButton;
     private Button rightToggleButton;
     private Button rightModeButton;
+    private Button intervalTargetButton;
 
     public PotatoCoreScreen() {
         super(Component.literal("PotatoCore"));
@@ -27,6 +29,7 @@ public final class PotatoCoreScreen extends Screen {
     protected void init() {
         int centerX = width / 2;
         int top = height / 2 - 118;
+        displayedRightMode = ClickerController.getRightMode();
 
         leftToggleButton = addRenderableWidget(Button.builder(leftToggleText(), button -> {
             ClickerController.toggleLeft();
@@ -40,14 +43,15 @@ public final class PotatoCoreScreen extends Screen {
 
         rightModeButton = addRenderableWidget(Button.builder(rightModeText(), button -> {
             ClickerController.cycleRightMode();
+            displayedRightMode = ClickerController.getRightMode();
             button.setMessage(rightModeText());
+            intervalTargetButton.setMessage(intervalTargetText());
             if (!editingLeftInterval) {
                 loadIntervalFields();
             }
         }).bounds(centerX - 145, top + 28, 290, 20).build());
 
-        addRenderableWidget(Button.builder(Component.literal("Editing interval: " + (editingLeftInterval
-                ? "Left Click" : ClickerController.getRightMode().getDisplayName())), button -> {
+        intervalTargetButton = addRenderableWidget(Button.builder(intervalTargetText(), button -> {
             editingLeftInterval = !editingLeftInterval;
             button.setMessage(intervalTargetText());
             loadIntervalFields();
@@ -172,9 +176,18 @@ public final class PotatoCoreScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        ClickMode rightMode = ClickerController.getRightMode();
+        if (rightMode != displayedRightMode) {
+            displayedRightMode = rightMode;
+            rightModeButton.setMessage(rightModeText());
+            intervalTargetButton.setMessage(intervalTargetText());
+            if (!editingLeftInterval) {
+                loadIntervalFields();
+            }
+        }
+
         leftToggleButton.setMessage(leftToggleText());
         rightToggleButton.setMessage(rightToggleText());
-        rightModeButton.setMessage(rightModeText());
 
         renderBackground(graphics);
         super.render(graphics, mouseX, mouseY, partialTick);
