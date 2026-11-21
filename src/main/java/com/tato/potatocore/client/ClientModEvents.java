@@ -1,0 +1,21 @@
+package com.tato.potatocore.client;
+
+import com.tato.potatocore.PotatoCore;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
+
+@Mod.EventBusSubscriber(modid = PotatoCore.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
+public final class ClientModEvents {
+    private ClientModEvents() {
+    }
+
+    @SubscribeEvent
+    public static void registerKeyMappings(RegisterKeyMappingsEvent event) {
+        event.register(ClientKeyMappings.TOGGLE_CLICKER);
+        event.register(ClientKeyMappings.NEXT_CLICK_MODE);
+        event.register(ClientKeyMappings.OPEN_MAIN_MENU);
+        event.register(ClientKeyMappings.OPEN_MACRO_BUILDER);
+    }
+}
