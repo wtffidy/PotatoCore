@@ -63,14 +63,14 @@ if not "%HEAD_BEFORE_PULL%"=="%HEAD_AFTER_PULL%" (
 echo [INFO] Source is up to date.
 echo.
 
-echo [INFO] Locating a Java 17 runtime...
+echo [INFO] Locating CurseForge's Java 17 runtime...
 set "JAVA_RESULT=%TEMP%\PotatoCore-JavaHome.txt"
 if exist "%JAVA_RESULT%" del "%JAVA_RESULT%"
 
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0setup-java17.ps1" -OutputFile "%JAVA_RESULT%"
 if errorlevel 1 (
     echo.
-    echo [ERROR] Java 17 could not be located or installed.
+    echo [ERROR] CurseForge Java 17 could not be located.
     pause
     exit /b 1
 )
@@ -89,9 +89,9 @@ if not exist "%JAVA_HOME%\bin\java.exe" (
     exit /b 1
 )
 
-
-echo [INFO] Using Java 17: %JAVA_HOME%
-java -version
+set "PATH=%JAVA_HOME%\bin;%PATH%"
+echo [INFO] Using CurseForge Java 17: %JAVA_HOME%
+"%JAVA_HOME%\bin\java.exe" -version
 echo.
 
 set "GRADLE_VERSION=8.1.1"
