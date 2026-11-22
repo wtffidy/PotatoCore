@@ -49,6 +49,32 @@ Then start the transmitter on the computer beside the Mana Pool:
 mana_tx
 ```
 
+## Separate auxiliary pool groups
+
+The receiver keeps the main 3x3 array separate from two optional auxiliary groups:
+
+- `array`: the default group for the nine main pools.
+- `elven_portal`: a dedicated Elven Portal mana pool (or group of pools).
+- `materials_exchange`: a dedicated Basic Materials Exchange mana pool (or group of pools).
+
+To add an auxiliary pool, place a transmitter computer where it can see that pool, download the updated `mana_tx.lua`, and edit its CONFIG group.
+
+For the Elven Portal transmitter, set:
+
+```lua
+group = "elven_portal"
+```
+
+For the Basic Materials Exchange transmitter, set:
+
+```lua
+group = "materials_exchange"
+```
+
+Leave the nine existing transmitters set to `group = "array"`. The receiver treats older packets without a group field as `array`, so the existing nine computers do not need to be changed just to keep working.
+
+For automatic startup on an auxiliary transmitter, install `startup_tx.lua` as its `startup.lua` after configuring `mana_tx.lua`.
+
 ## Multiple pools and transmitters
 
 Each transmitter discovers all `manaPool` peripherals visible to its own peripheral network. This includes directly attached peripherals and pools exposed through a connected wired modem network.
