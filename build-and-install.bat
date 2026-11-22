@@ -64,11 +64,10 @@ echo [INFO] Source is up to date.
 echo.
 
 echo [INFO] Locating a Java 17 runtime...
-set "JAVA_HOME_ORIGINAL=%JAVA_HOME%"
 set "JAVA_RESULT=%TEMP%\PotatoCore-JavaHome.txt"
 if exist "%JAVA_RESULT%" del "%JAVA_RESULT%"
 
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0setup-java17.ps1" -OutputFile "%JAVA_RESULT%" -ExistingJavaHome "%JAVA_HOME_ORIGINAL%"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0setup-java17.ps1" -OutputFile "%JAVA_RESULT%"
 if errorlevel 1 (
     echo.
     echo [ERROR] Java 17 could not be located or installed.
