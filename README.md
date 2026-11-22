@@ -92,3 +92,5 @@ wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/man
 wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/mana-network/mana_rx.lua mana_rx.lua
 ```
 
+**Updating existing computers:** CC:Tweaked's `wget` does not overwrite an existing file. Run `delete mana_tx.lua` or `delete mana_rx.lua` on the relevant computer before running its download command again.
+
