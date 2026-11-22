@@ -16,7 +16,12 @@
 local CONFIG = {
     modemSide = "bottom",
     protocol = "potatocore_mana_multi_v1",
-    updateInterval = 0.5
+    updateInterval = 0.5,
+
+    -- "array" = one of the main 3x3 pools
+    -- "elven_portal" = dedicated Elven Portal mana pool
+    -- "materials_exchange" = Basic Materials Exchange mana pool
+    group = "array"
 }
 
 local previousReadings = {}
@@ -135,6 +140,7 @@ while true do
         kind = "mana_multi",
         version = 1,
         computer = os.getComputerID(),
+        group = CONFIG.group,
         pools = pools,
         count = #pools,
         totalMana = totalMana,
