@@ -1,11 +1,10 @@
 param(
     [Parameter(Mandatory = $true)]
-    [string]$OutputFile,
-
-    [string]$ExistingJavaHome = ""
+    [string]$OutputFile
 )
 
 $ErrorActionPreference = "Stop"
+$stage = "initializing"
 
 function Test-Java17 {
     param([string]$JavaPath)
@@ -17,119 +16,90 @@ function Test-Java17 {
     $versionOutput = (& $JavaPath -version 2>&1 | Out-String)
     $versionMatch = [regex]::Match($versionOutput, 'version\s+"?(\d+)')
 
-    return $LASTEXITCODE -eq 0 -and $versionMatch.Success -and $versionMatch.Groups[1].Value -eq "17"
-}
-
-function Find-Java17 {
-    param([string]$PreferredJavaHome)
-
-    $candidates = [System.Collections.Generic.List[string]]::new()
-
-    if (-not [string]::IsNullOrWhiteSpace($PreferredJavaHome)) {
-        $candidates.Add((Join-Path $PreferredJavaHome "bin\java.exe"))
-    }
-
-    $pathJava = Get-Command "java.exe" -ErrorAction SilentlyContinue
-    if ($pathJava) {
-        $candidates.Add($pathJava.Source)
-    }
-
-    $searchRoots = @(
-        (Join-Path $env:ProgramFiles "Eclipse Adoptium"),
-        (Join-Path $env:ProgramFiles "Microsoft"),
-        (Join-Path $env:ProgramFiles "Java"),
-        (Join-Path $env:LOCALAPPDATA "Programs\Eclipse Adoptium"),
-        (Join-Path $env:LOCALAPPDATA "Programs\Microsoft")
-    )
-
-    foreach ($searchRoot in $searchRoots) {
-        if (Test-Path -LiteralPath $searchRoot -PathType Container) {
-            Get-ChildItem -LiteralPath $searchRoot -Directory -ErrorAction SilentlyContinue | ForEach-Object {
-                $candidates.Add((Join-Path $_.FullName "bin\java.exe"))
-            }
-        }
-    }
-
-    $minecraftRuntime = Join-Path $env:APPDATA ".minecraft\runtime\*\windows-x64\*\bin\java.exe"
-    Get-ChildItem -Path $minecraftRuntime -File -ErrorAction SilentlyContinue | ForEach-Object {
-        $candidates.Add($_.FullName)
-    }
-
-    foreach ($candidate in ($candidates | Select-Object -Unique)) {
-        if (Test-Java17 -JavaPath $candidate) {
-            return (Split-Path (Split-Path $candidate -Parent) -Parent)
-        }
-    }
-
-    return $null
+    return $versionMatch.Success -and $versionMatch.Groups[1].Value -eq "17"
 }
 
 try {
-    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
+    $stage = "checking Windows local application data folder"
+    if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
+        throw "LOCALAPPDATA is not defined in this Windows session."
+    }
 
-    $javaHome = Find-Java17 -PreferredJavaHome $ExistingJavaHome
+    $installRoot = [System.IO.Path]::GetFullPath((Join-Path -Path $env:LOCALAPPDATA -ChildPath "PotatoCore"))
+    $javaHome = Join-Path -Path $installRoot -ChildPath "jdk-17"
+    $javaExe = Join-Path -Path $javaHome -ChildPath "bin\java.exe"
 
-    if (-not $javaHome) {
-        $installRoot = Join-Path $env:LOCALAPPDATA "PotatoCore"
-        $javaHome = Join-Path $installRoot "jdk-17"
-        $downloadRoot = Join-Path $installRoot "java17-download"
-        $archivePath = Join-Path $installRoot "temurin-17-windows-x64.zip"
+    $stage = "checking cached Java 17 installation"
+    if (-not (Test-Java17 -JavaPath $javaExe)) {
+        $downloadRoot = Join-Path -Path $installRoot -ChildPath "jdk-extract"
+        $archivePath = Join-Path -Path $installRoot -ChildPath "temurin-17-windows-x64.zip"
         $downloadUrl = "https://api.adoptium.net/v3/binary/latest/17/ga/windows/x64/jdk/hotspot/normal/eclipse"
 
+        $stage = "creating local Java installation folder"
         New-Item -ItemType Directory -Path $installRoot -Force | Out-Null
 
         if (Test-Path -LiteralPath $downloadRoot) {
             Remove-Item -LiteralPath $downloadRoot -Recurse -Force
         }
-
         if (Test-Path -LiteralPath $archivePath) {
             Remove-Item -LiteralPath $archivePath -Force
         }
-
-        Write-Host "[INFO] Java 17 was not found. Downloading Eclipse Temurin JDK 17..."
-        Write-Host "[INFO] Downloading from the official Adoptium API. This is a one-time setup."
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $archivePath -UseBasicParsing
-
-        Write-Host "[INFO] Extracting Java 17..."
-        New-Item -ItemType Directory -Path $downloadRoot -Force | Out-Null
-        Expand-Archive -LiteralPath $archivePath -DestinationPath $downloadRoot -Force
-
-        $jdkFolder = Get-ChildItem -LiteralPath $downloadRoot -Directory | Where-Object {
-            Test-Path -LiteralPath (Join-Path $_.FullName "bin\java.exe") -PathType Leaf
-        } | Select-Object -First 1
-
-        if (-not $jdkFolder) {
-            throw "The downloaded archive did not contain a valid JDK."
-        }
-
         if (Test-Path -LiteralPath $javaHome) {
             Remove-Item -LiteralPath $javaHome -Recurse -Force
         }
 
+        $stage = "downloading Eclipse Temurin JDK 17"
+        Write-Host "[INFO] Downloading Eclipse Temurin JDK 17 from Adoptium..."
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $archivePath -UseBasicParsing
+
+        $stage = "extracting Java 17 archive"
+        Write-Host "[INFO] Extracting Java 17..."
+        New-Item -ItemType Directory -Path $downloadRoot -Force | Out-Null
+        Expand-Archive -LiteralPath $archivePath -DestinationPath $downloadRoot -Force
+
+        $stage = "locating the extracted JDK"
+        $jdkFolder = Get-ChildItem -LiteralPath $downloadRoot -Directory | Where-Object {
+            Test-Path -LiteralPath (Join-Path -Path $_.FullName -ChildPath "bin\java.exe") -PathType Leaf
+        } | Select-Object -First 1
+
+        if (-not $jdkFolder) {
+            throw "The downloaded archive did not contain a valid Windows JDK."
+        }
+
+        $stage = "installing Java 17 locally"
         Move-Item -LiteralPath $jdkFolder.FullName -Destination $javaHome
         Remove-Item -LiteralPath $downloadRoot -Recurse -Force
         Remove-Item -LiteralPath $archivePath -Force
 
-        if (-not (Test-Java17 -JavaPath (Join-Path $javaHome "bin\java.exe"))) {
-            throw "The downloaded Java runtime failed its Java 17 version check."
+        $stage = "verifying downloaded Java version"
+        if (-not (Test-Java17 -JavaPath $javaExe)) {
+            throw "The downloaded runtime did not report Java major version 17."
         }
 
-        Write-Host "[INFO] Java 17 installed locally at $javaHome"
+        Write-Host "[INFO] Java 17 installed at: $javaHome"
     }
     else {
-        Write-Host "[INFO] Found an existing Java 17 runtime at $javaHome"
+        Write-Host "[INFO] Reusing cached Java 17 at: $javaHome"
     }
 
-    $outputDirectory = Split-Path -Parent $OutputFile
-    if (-not (Test-Path -LiteralPath $outputDirectory)) {
+    $stage = "writing Java 17 path for build installer"
+    $fullOutputFile = [System.IO.Path]::GetFullPath($OutputFile)
+    $outputDirectory = [System.IO.Path]::GetDirectoryName($fullOutputFile)
+    if (-not (Test-Path -LiteralPath $outputDirectory -PathType Container)) {
         New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
     }
+    [System.IO.File]::WriteAllText($fullOutputFile, $javaHome, [System.Text.Encoding]::ASCII)
 
-    Set-Content -LiteralPath $OutputFile -Value $javaHome -NoNewline -Encoding ASCII
+    Write-Host "[INFO] Java 17 is ready."
     exit 0
 }
 catch {
     Write-Host ""
-    Write-Host "[ERROR] Java 17 setup failed: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "[ERROR] Java 17 setup failed during: $stage" -ForegroundColor Red
+    Write-Host "[ERROR] $($_.Exception.Message)" -ForegroundColor Red
+    if ($_.TargetObject) {
+        Write-Host "[ERROR] Target: $($_.TargetObject)" -ForegroundColor Red
+    }
     exit 1
 }
