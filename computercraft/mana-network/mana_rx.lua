@@ -266,62 +266,66 @@ end
 local function drawPoolCard(canvas, index, pool, x, y, cardWidth)
     local right = x + cardWidth - 1
     local innerWidth = cardWidth - 2
-    local top = "+" .. string.rep("-", innerWidth) .. "+"
-    local bottom = top
+    local heading = pool
+        and "POOL " .. string.format("%02d", index) .. " // PC" .. pool.computer
+        or "POOL " .. string.format("%02d", index) .. " // OFFLINE"
+    heading = fit(heading, innerWidth)
 
-    writeAt(canvas, x, y, top, C.border)
-    writeAt(canvas, x, y + 5, bottom, C.border)
+    local leftDashes = math.max(0, math.floor((innerWidth - #heading) / 2))
+    local rightDashes = math.max(0, innerWidth - #heading - leftDashes)
+
+    writeAt(canvas, x, y, "+" .. string.rep("-", leftDashes), C.border)
+    writeAt(canvas, x + 1 + leftDashes, y, heading, pool and C.cyan or C.muted)
+    writeAt(
+        canvas,
+        x + 1 + leftDashes + #heading,
+        y,
+        string.rep("-", rightDashes) .. "+",
+        C.border
+    )
+    writeAt(canvas, x, y + 4, "+" .. string.rep("-", innerWidth) .. "+", C.border)
 
     if not pool then
         writeAt(canvas, x, y + 1, "|", C.border)
-        writeAt(canvas, x + 1, y + 1, fit("POOL " .. string.format("%02d", index), innerWidth), C.muted)
+        writeAt(canvas, x + 1, y + 1, fit("NO SIGNAL", innerWidth), C.orange)
         writeAt(canvas, right, y + 1, "|", C.border)
 
         writeAt(canvas, x, y + 2, "|", C.border)
-        writeAt(canvas, x + 1, y + 2, fit("NO SIGNAL", innerWidth), C.orange)
+        writeAt(canvas, x + 1, y + 2, fit("[--------------------]", innerWidth), C.muted)
         writeAt(canvas, right, y + 2, "|", C.border)
 
         writeAt(canvas, x, y + 3, "|", C.border)
-        writeAt(canvas, x + 1, y + 3, fit("CHECK NODE LINK", innerWidth), C.muted)
+        writeAt(canvas, x + 1, y + 3, fit("WAITING FOR NODE", innerWidth), C.muted)
         writeAt(canvas, right, y + 3, "|", C.border)
-
-        writeAt(canvas, x, y + 4, "|", C.border)
-        writeAt(canvas, x + 1, y + 4, fit("WAITING...", innerWidth), C.muted)
-        writeAt(canvas, right, y + 4, "|", C.border)
         return
     end
 
     local percentage = pool.maximum > 0 and pool.mana / pool.maximum * 100 or 0
     percentage = math.max(0, math.min(100, percentage))
     local status, statusColour = getPoolStatus(pool, percentage)
-    local nodeName = "POOL " .. string.format("%02d", index) .. " // NODE " .. pool.computer
+    local statusText = status .. "  " .. string.format("%5.1f%%", percentage)
 
     writeAt(canvas, x, y + 1, "|", C.border)
-    writeAt(canvas, x + 1, y + 1, fit(nodeName, innerWidth), C.cyan)
+    writeAt(canvas, x + 1, y + 1, fit(statusText, innerWidth), statusColour)
     writeAt(canvas, right, y + 1, "|", C.border)
-
-    local statusText = status .. "  " .. string.format("%5.1f%%", percentage)
-    writeAt(canvas, x, y + 2, "|", C.border)
-    writeAt(canvas, x + 1, y + 2, fit(statusText, innerWidth), statusColour)
-    writeAt(canvas, right, y + 2, "|", C.border)
 
     local barWidth = math.max(4, innerWidth - 4)
     local filled = math.floor(barWidth * percentage / 100)
     filled = math.max(0, math.min(barWidth, filled))
 
-    writeAt(canvas, x, y + 3, "|", C.border)
-    writeAt(canvas, x + 1, y + 3, "[", C.muted)
-    writeAt(canvas, x + 2, y + 3, string.rep("#", filled), C.green)
-    writeAt(canvas, x + filled + 2, y + 3, string.rep("-", barWidth - filled), C.muted)
-    writeAt(canvas, x + barWidth + 2, y + 3, "]", C.muted)
-    writeAt(canvas, right, y + 3, "|", C.border)
+    writeAt(canvas, x, y + 2, "|", C.border)
+    writeAt(canvas, x + 1, y + 2, "[", C.muted)
+    writeAt(canvas, x + 2, y + 2, string.rep("#", filled), C.green)
+    writeAt(canvas, x + filled + 2, y + 2, string.rep("-", barWidth - filled), C.muted)
+    writeAt(canvas, x + barWidth + 2, y + 2, "]", C.muted)
+    writeAt(canvas, right, y + 2, "|", C.border)
 
     local stats = compactNumber(pool.mana) .. "/" .. compactNumber(pool.maximum)
         .. "  " .. signedCompact(pool.rate) .. "/s"
 
-    writeAt(canvas, x, y + 4, "|", C.border)
-    writeAt(canvas, x + 1, y + 4, fit(stats, innerWidth), C.white)
-    writeAt(canvas, right, y + 4, "|", C.border)
+    writeAt(canvas, x, y + 3, "|", C.border)
+    writeAt(canvas, x + 1, y + 3, fit(stats, innerWidth), C.white)
+    writeAt(canvas, right, y + 3, "|", C.border)
 end
 
 local function drawDashboard()
@@ -407,7 +411,7 @@ local function drawDashboard()
         local column = (index - 1) % columns
         local row = math.floor((index - 1) / columns)
         local x = firstX + column * (cardWidth + gap)
-        local y = firstY + row * 6
+        local y = firstY + row * 5
 
         drawPoolCard(canvas, index, pools[index], x, y, cardWidth)
     end
@@ -433,7 +437,6 @@ local function drawDashboard()
     end
 
     local uptime = formatDuration((os.epoch("utc") - startedAt) / 1000)
-    writeRule(canvas, height - 2, "-", C.border)
     writeAt(
         canvas,
         3,
