@@ -10,14 +10,14 @@ Remote multi-pool Botania mana monitor for CC:Tweaked, Advanced Peripherals, and
 ## Confirmed Project Infinity hardware layout
 
 ### Mana transmitter computer
-- Mana Pool: `left`
-- Ender Modem: `front`
+- Mana Pool: `top`
+- Ender Modem: `bottom`
 
 ### Remote monitor computer
 - Monitor: `top`
 - Ender Modem: `bottom`
 
-If your hardware differs, edit the CONFIG block near the top of the relevant Lua file.
+The transmitter scans all locally accessible peripherals, so it does not need a configured pool side. The Ender Modem side is configured as `bottom` for the under-pool computer layout. If your hardware differs, edit the CONFIG block near the top of the relevant Lua file.
 
 ## Install from the CraftOS shell
 
