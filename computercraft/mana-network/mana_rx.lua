@@ -265,6 +265,20 @@ local function collectTotals()
         totalMana, totalMaximum, totalRate, activeTransmitters
 end
 
+local function getPoolTotals(poolList)
+    local mana = 0
+    local maximum = 0
+    local rate = 0
+
+    for _, pool in ipairs(poolList) do
+        mana = mana + pool.mana
+        maximum = maximum + pool.maximum
+        rate = rate + pool.rate
+    end
+
+    return mana, maximum, rate
+end
+
 local function getPoolStatus(pool, percentage)
     if percentage >= 99.99 then
         return "FULL", C.cyan
@@ -361,8 +375,12 @@ local function drawAuxPanel(canvas, x, y, panelWidth, title, pools, maxRows)
         C.purple
     )
 
+    local groupMana, groupMaximum = getPoolTotals(pools)
+    local groupSummary = "TOTAL " .. compactNumber(groupMana)
+        .. " / " .. compactNumber(groupMaximum)
+
     writeAt(canvas, x, y + 1, "|", C.purple)
-    writeAt(canvas, x + 1, y + 1, fit("AUXILIARY MANA LINK", innerWidth), C.muted)
+    writeAt(canvas, x + 1, y + 1, fit(groupSummary, innerWidth), C.white)
     writeAt(canvas, right, y + 1, "|", C.purple)
 
     local visible = math.min(#pools, maxRows)
@@ -495,6 +513,15 @@ local function drawDashboard()
 
         drawPoolCard(canvas, index, arrayPools[index], x, y, cardWidth)
     end
+
+    local arrayMana, arrayMaximum = getPoolTotals(arrayPools)
+    writeCentered(
+        canvas,
+        26,
+        "MAIN ARRAY TOTAL: " .. compactNumber(arrayMana)
+            .. " / " .. compactNumber(arrayMaximum),
+        C.white
+    )
 
     -- Separate auxiliary groups. Extra transmitters never take a slot in the 3x3 array.
     writeRule(canvas, 27, "=", C.purple)
