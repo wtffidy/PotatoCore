@@ -212,7 +212,9 @@ end
 
 local function collectTotals()
     local now = os.epoch("utc")
-    local allPools = {}
+    local arrayPools = {}
+    local elvenPools = {}
+    local materialsPools = {}
     local totalMana = 0
     local totalMaximum = 0
     local totalRate = 0
@@ -222,8 +224,15 @@ local function collectTotals()
         if now - source.seen <= CONFIG.transmitterTimeout * 1000 then
             activeTransmitters = activeTransmitters + 1
 
+            local target = arrayPools
+            if source.group == "elven_portal" then
+                target = elvenPools
+            elseif source.group == "materials_exchange" then
+                target = materialsPools
+            end
+
             for _, pool in ipairs(source.pools) do
-                allPools[#allPools + 1] = {
+                target[#target + 1] = {
                     computer = computerId,
                     name = pool.name,
                     mana = pool.mana,
@@ -238,15 +247,22 @@ local function collectTotals()
         end
     end
 
-    table.sort(allPools, function(a, b)
-        if a.computer == b.computer then
-            return a.name < b.name
-        end
+    local function sortPools(poolList)
+        table.sort(poolList, function(a, b)
+            if a.computer == b.computer then
+                return a.name < b.name
+            end
 
-        return a.computer < b.computer
-    end)
+            return a.computer < b.computer
+        end)
+    end
 
-    return allPools, totalMana, totalMaximum, totalRate, activeTransmitters
+    sortPools(arrayPools)
+    sortPools(elvenPools)
+    sortPools(materialsPools)
+
+    return arrayPools, elvenPools, materialsPools,
+        totalMana, totalMaximum, totalRate, activeTransmitters
 end
 
 local function getPoolStatus(pool, percentage)
@@ -328,17 +344,75 @@ local function drawPoolCard(canvas, index, pool, x, y, cardWidth)
     writeAt(canvas, right, y + 3, "|", C.border)
 end
 
+local function drawAuxPanel(canvas, x, y, panelWidth, title, pools, maxRows)
+    local right = x + panelWidth - 1
+    local innerWidth = panelWidth - 2
+    local heading = fit(title, innerWidth)
+    local leftDashes = math.max(0, math.floor((innerWidth - #heading) / 2))
+    local rightDashes = math.max(0, innerWidth - #heading - leftDashes)
+
+    writeAt(canvas, x, y, "+" .. string.rep("-", leftDashes), C.purple)
+    writeAt(canvas, x + 1 + leftDashes, y, heading, C.cyan)
+    writeAt(
+        canvas,
+        x + 1 + leftDashes + #heading,
+        y,
+        string.rep("-", rightDashes) .. "+",
+        C.purple
+    )
+
+    writeAt(canvas, x, y + 1, "|", C.purple)
+    writeAt(canvas, x + 1, y + 1, fit("AUXILIARY MANA LINK", innerWidth), C.muted)
+    writeAt(canvas, right, y + 1, "|", C.purple)
+
+    local visible = math.min(#pools, maxRows)
+    if visible == 0 then
+        writeAt(canvas, x, y + 2, "|", C.purple)
+        writeAt(canvas, x + 1, y + 2, fit("NO POOL CONNECTED", innerWidth), C.orange)
+        writeAt(canvas, right, y + 2, "|", C.purple)
+        writeAt(canvas, x, y + 3, "+" .. string.rep("-", innerWidth) .. "+", C.purple)
+        return
+    end
+
+    for index = 1, visible do
+        local pool = pools[index]
+        local percentage = pool.maximum > 0 and pool.mana / pool.maximum * 100 or 0
+        percentage = math.max(0, math.min(100, percentage))
+        local status, statusColour = getPoolStatus(pool, percentage)
+
+        local line = string.format(
+            "P%02d %5.1f%% %s/%s %s",
+            index,
+            percentage,
+            compactNumber(pool.mana),
+            compactNumber(pool.maximum),
+            signedCompact(pool.rate) .. "/s"
+        )
+
+        if #pools > maxRows and index == visible then
+            line = "+" .. (#pools - visible + 1) .. " MORE POOLS"
+            statusColour = C.orange
+        end
+
+        writeAt(canvas, x, y + 1 + index, "|", C.purple)
+        writeAt(canvas, x + 1, y + 1 + index, fit(line, innerWidth), statusColour)
+        writeAt(canvas, right, y + 1 + index, "|", C.purple)
+    end
+
+    writeAt(canvas, x, y + 2 + visible, "+" .. string.rep("-", innerWidth) .. "+", C.purple)
+end
+
 local function drawDashboard()
     local canvas = newCanvas()
-    local pools, mana, maximum, rate, transmitters = collectTotals()
+    local arrayPools, elvenPools, materialsPools, mana, maximum, rate, transmitters = collectTotals()
     local percentage = maximum > 0 and mana / maximum * 100 or 0
     percentage = math.max(0, math.min(100, percentage))
 
     local networkStatus = "SYSTEM STANDBY"
     local statusColour = C.blue
 
-    if #pools < CONFIG.expectedPools then
-        networkStatus = "PARTIAL LINK"
+    if #arrayPools < CONFIG.expectedPools then
+        networkStatus = "MAIN ARRAY PARTIAL"
         statusColour = C.orange
     elseif percentage >= 99.99 then
         networkStatus = "CAPACITY REACHED"
@@ -361,9 +435,16 @@ local function drawDashboard()
     writeRule(canvas, 4, "=", C.border)
 
     writeAt(canvas, 3, 5, "[SYS] " .. networkStatus, statusColour)
-    writeRight(canvas, 5, width - 2, "[LINK] " .. transmitters .. "/" .. CONFIG.expectedPools .. " NODES", C.cyan)
+    writeRight(
+        canvas,
+        5,
+        width - 2,
+        "[ARRAY] " .. #arrayPools .. "/" .. CONFIG.expectedPools
+            .. "  [TX] " .. transmitters,
+        C.cyan
+    )
 
-    -- Network-wide charge bar.
+    -- Network-wide storage includes the main array and both auxiliary pools.
     local barWidth = math.max(10, width - 8)
     local filled = math.floor(barWidth * percentage / 100)
     filled = math.max(0, math.min(barWidth, filled))
@@ -377,12 +458,12 @@ local function drawDashboard()
     writeCentered(
         canvas,
         7,
-        "STORAGE  " .. formatNumber(mana) .. " / " .. formatNumber(maximum)
+        "TOTAL MANA  " .. formatNumber(mana) .. " / " .. formatNumber(maximum)
             .. "  [" .. string.format("%.1f", percentage) .. "%]",
         C.white
     )
 
-    local flowText = "THROUGHPUT  " .. signedCompact(rate) .. " MANA/SEC"
+    local flowText = "NETWORK FLOW  " .. signedCompact(rate) .. " MANA/SEC"
     if rate > 0.5 and mana < maximum then
         flowText = flowText .. "  //  FULL IN " .. formatDuration((maximum - mana) / rate)
     elseif rate < -0.5 and mana > 0 then
@@ -397,32 +478,80 @@ local function drawDashboard()
     )
 
     writeRule(canvas, 9, "-", C.border)
-    writeCentered(canvas, 10, "/// 3x3 POOL ARRAY // LIVE TELEMETRY ///", C.cyan)
+    writeCentered(canvas, 10, "/// PRIMARY ARRAY // 3 x 3 POOL GRID ///", C.cyan)
 
-    -- Three columns of pool cards. One card is reserved for each expected pool.
+    -- The nine main array slots remain fixed and separate from auxiliary pools.
     local columns = 3
     local gap = 2
     local cardWidth = math.floor((width - 4 - gap * (columns - 1)) / columns)
     local firstX = math.floor((width - (cardWidth * columns + gap * (columns - 1))) / 2) + 1
     local firstY = 11
-    local displayCount = math.min(CONFIG.expectedPools, 9)
 
-    for index = 1, displayCount do
+    for index = 1, CONFIG.expectedPools do
         local column = (index - 1) % columns
         local row = math.floor((index - 1) / columns)
         local x = firstX + column * (cardWidth + gap)
         local y = firstY + row * 5
 
-        drawPoolCard(canvas, index, pools[index], x, y, cardWidth)
+        drawPoolCard(canvas, index, arrayPools[index], x, y, cardWidth)
     end
 
-    -- Compact diagnostics footer.
+    -- Separate auxiliary groups. Extra transmitters never take a slot in the 3x3 array.
+    writeRule(canvas, 27, "=", C.purple)
+    writeCentered(canvas, 28, "/// AUXILIARY MANA SYSTEMS ///", C.purple)
+
+    local panelGap = 3
+    local panelWidth = math.floor((width - 4 - panelGap) / 2)
+    local panelY = 29
+    local panelX = 3
+    local maxRows = math.max(1, height - 32)
+
+    if height >= 34 and panelWidth >= 24 then
+        drawAuxPanel(
+            canvas,
+            panelX,
+            panelY,
+            panelWidth,
+            "ELVEN PORTAL",
+            elvenPools,
+            maxRows
+        )
+
+        drawAuxPanel(
+            canvas,
+            panelX + panelWidth + panelGap,
+            panelY,
+            panelWidth,
+            "BASIC MATERIALS EXCHANGE",
+            materialsPools,
+            maxRows
+        )
+    else
+        writeCentered(
+            canvas,
+            29,
+            "ELVEN PORTAL: " .. #elvenPools .. "  |  MATERIALS EXCHANGE: " .. #materialsPools,
+            C.purple
+        )
+    end
+
     local fullCount = 0
     local lowCount = 0
     local chargingCount = 0
     local drainingCount = 0
 
-    for _, pool in ipairs(pools) do
+    local allPools = {}
+    for _, pool in ipairs(arrayPools) do
+        allPools[#allPools + 1] = pool
+    end
+    for _, pool in ipairs(elvenPools) do
+        allPools[#allPools + 1] = pool
+    end
+    for _, pool in ipairs(materialsPools) do
+        allPools[#allPools + 1] = pool
+    end
+
+    for _, pool in ipairs(allPools) do
         local poolPercentage = pool.maximum > 0 and pool.mana / pool.maximum * 100 or 0
 
         if poolPercentage >= 99.99 then
@@ -486,7 +615,13 @@ while true do
             end
         end
 
+        local group = message.group
+        if group ~= "elven_portal" and group ~= "materials_exchange" then
+            group = "array"
+        end
+
         sources[senderId] = {
+            group = group,
             pools = cleanPools,
             seen = os.epoch("utc")
         }
