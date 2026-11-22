@@ -7,6 +7,53 @@ echo PotatoCore - Build and CurseForge Installer
 echo -------------------------------------------
 echo.
 
+where git >nul 2>nul
+if errorlevel 1 (
+    echo [ERROR] Git was not found in PATH. Install Git for Windows first.
+    pause
+    exit /b 1
+)
+
+git rev-parse --is-inside-work-tree >nul 2>nul
+if errorlevel 1 (
+    echo [ERROR] This folder is not a Git checkout.
+    echo Clone https://github.com/wtffidy/PotatoCore first, then run this file.
+    pause
+    exit /b 1
+)
+
+for /f "delims=" %%B in ('git branch --show-current') do set "CURRENT_BRANCH=%%B"
+if /i not "%CURRENT_BRANCH%"=="main" (
+    echo [ERROR] This checkout is on branch "%CURRENT_BRANCH%", not main.
+    echo Switch to main before running the build installer.
+    pause
+    exit /b 1
+)
+
+git diff --quiet
+if errorlevel 1 (
+    echo [ERROR] Local tracked changes detected. Commit or stash them before updating.
+    pause
+    exit /b 1
+)
+git diff --cached --quiet
+if errorlevel 1 (
+    echo [ERROR] Staged local changes detected. Commit or unstage them before updating.
+    pause
+    exit /b 1
+)
+
+echo [INFO] Pulling the latest PotatoCore from GitHub...
+git pull --ff-only origin main
+if errorlevel 1 (
+    echo.
+    echo [ERROR] Git pull failed. Check your connection and local repository state.
+    pause
+    exit /b 1
+)
+echo [INFO] Source is up to date.
+echo.
+
 echo [INFO] Locating a Java 17 runtime...
 for /f "usebackq delims=" %%J in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = 'SilentlyContinue'; $candidates = [System.Collections.Generic.List[string]]::new(); if ($env:JAVA_HOME) { $candidates.Add((Join-Path $env:JAVA_HOME 'bin\java.exe')) }; $cmd = Get-Command java.exe -ErrorAction SilentlyContinue; if ($cmd) { $candidates.Add($cmd.Source) }; foreach ($base in @((Join-Path $env:ProgramFiles 'Eclipse Adoptium'), (Join-Path $env:ProgramFiles 'Microsoft'), (Join-Path $env:ProgramFiles 'Java'), (Join-Path $env:LOCALAPPDATA 'Programs\Eclipse Adoptium'))) { Get-ChildItem -LiteralPath $base -Directory -Filter 'jdk-17*' -ErrorAction SilentlyContinue | ForEach-Object { $candidates.Add((Join-Path $_.FullName 'bin\java.exe')) } }; $runtime = Join-Path $env:APPDATA '.minecraft\runtime\*\windows-x64\*\bin\java.exe'; Get-ChildItem -Path $runtime -File -ErrorAction SilentlyContinue | ForEach-Object { $candidates.Add($_.FullName) }; foreach ($java in ($candidates | Select-Object -Unique)) { if (Test-Path -LiteralPath $java) { $version = (& $java -version 2>&1 | Out-String); if ($version -match 'version .17([.]|$)' -or $version -match 'openjdk 17') { Split-Path (Split-Path $java -Parent) -Parent; exit 0 } } }; exit 1"`) do set "JAVA_HOME=%%J"
 
