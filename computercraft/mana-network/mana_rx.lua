@@ -350,6 +350,8 @@ local function drawDashboard()
     renderRows(rows, rowColours)
 end
 
+drawDashboard()
+
 print("POTATOCORE / MANA NETWORK")
 print("Monitor: " .. CONFIG.monitorSide:upper())
 print("Ender Modem: " .. CONFIG.modemSide:upper())
