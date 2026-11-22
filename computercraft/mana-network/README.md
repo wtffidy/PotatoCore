@@ -53,27 +53,38 @@ mana_tx
 
 The receiver keeps the main 3x3 array separate from two optional auxiliary groups:
 
-- `array`: the default group for the nine main pools.
-- `elven_portal`: a dedicated Elven Portal mana pool (or group of pools).
-- `materials_exchange`: a dedicated Basic Materials Exchange mana pool (or group of pools).
+- `array`: the nine main pools. Existing transmitters remain in this group.
+- `elven_portal`: the Elven Portal pool.
+- `materials_exchange`: the Basic Materials Exchange pool.
 
-To add an auxiliary pool, place a transmitter computer where it can see that pool, download the updated `mana_tx.lua`, and edit its CONFIG group.
+Use the dedicated files below. No manual editing of Lua configuration is needed.
 
-For the Elven Portal transmitter, set:
+### Elven Portal computer
 
-```lua
-group = "elven_portal"
+The computer must have its Ender Modem on `bottom` and be able to see the Elven Portal Mana Pool.
+
+```text
+delete mana_tx_elven.lua
+wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/mana-network/mana_tx_elven.lua mana_tx_elven.lua
+wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/mana-network/startup_elven.lua startup.lua
+startup.lua
 ```
 
-For the Basic Materials Exchange transmitter, set:
+### Basic Materials Exchange computer
 
-```lua
-group = "materials_exchange"
+The computer must have its Ender Modem on `bottom` and be able to see the Basic Materials Exchange Mana Pool.
+
+```text
+delete mana_tx_exchange.lua
+wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/mana-network/mana_tx_exchange.lua mana_tx_exchange.lua
+wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/mana-network/startup_exchange.lua startup.lua
+startup.lua
 ```
 
-Leave the nine existing transmitters set to `group = "array"`. The receiver treats older packets without a group field as `array`, so the existing nine computers do not need to be changed just to keep working.
+Each auxiliary computer installs its matching launcher as `startup.lua`, so it will automatically launch the correct transmitter after a computer or world restart. Do not install both auxiliary launchers on the same computer.
 
-For automatic startup on an auxiliary transmitter, install `startup_tx.lua` as its `startup.lua` after configuring `mana_tx.lua`.
+The receiver displays these groups in separate panels beneath the main 3x3 array. Additional pools can be placed in either auxiliary group by connecting them to that group's transmitter computer through its accessible peripheral network.
+
 
 ## Multiple pools and transmitters
 
