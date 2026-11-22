@@ -42,7 +42,13 @@ function Test-Jdk17 {
 try {
     $stage = "locating an existing Java 17 JDK"
 
+    if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
+        throw "LOCALAPPDATA is not defined in this Windows session."
+    }
+
     $searchRoots = @(
+        # Reuse the build-only JDK installed by this script on previous runs.
+        (Join-Path -Path $env:LOCALAPPDATA -ChildPath "PotatoCore\jdk-17"),
         (Join-Path -Path $env:ProgramFiles -ChildPath "Eclipse Adoptium"),
         (Join-Path -Path $env:ProgramFiles -ChildPath "Java"),
         (Join-Path -Path $env:LOCALAPPDATA -ChildPath "Programs\Eclipse Adoptium"),
