@@ -15,7 +15,7 @@ local CONFIG = {
     protocol = "potatocore_mana_multi_v1",
     transmitterTimeout = 6,
     expectedPools = 9,
-    textScale = 0.7,
+    textScale = 0.8,
     receiveInterval = 0.5
 }
 
@@ -37,7 +37,7 @@ local width, height = monitor.getSize()
 
 -- The 3x3 card layout needs room for its labels and footer.
 if width < 90 or height < 30 then
-    CONFIG.textScale = 0.5
+    CONFIG.textScale = 0.7
     monitor.setTextScale(CONFIG.textScale)
     width, height = monitor.getSize()
 end
