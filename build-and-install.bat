@@ -7,13 +7,22 @@ echo PotatoCore - Build and CurseForge Installer
 echo -------------------------------------------
 echo.
 
-where java >nul 2>nul
-if errorlevel 1 (
-    echo [ERROR] Java was not found in PATH.
-    echo Install a Java 17 JDK and make sure JAVA_HOME or PATH is configured.
+echo [INFO] Locating a Java 17 runtime...
+for /f "usebackq delims=" %%J in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = 'SilentlyContinue'; $candidates = [System.Collections.Generic.List[string]]::new(); if ($env:JAVA_HOME) { $candidates.Add((Join-Path $env:JAVA_HOME 'bin\java.exe')) }; $cmd = Get-Command java.exe -ErrorAction SilentlyContinue; if ($cmd) { $candidates.Add($cmd.Source) }; foreach ($base in @((Join-Path $env:ProgramFiles 'Eclipse Adoptium'), (Join-Path $env:ProgramFiles 'Microsoft'), (Join-Path $env:ProgramFiles 'Java'), (Join-Path $env:LOCALAPPDATA 'Programs\Eclipse Adoptium'))) { Get-ChildItem -LiteralPath $base -Directory -Filter 'jdk-17*' -ErrorAction SilentlyContinue | ForEach-Object { $candidates.Add((Join-Path $_.FullName 'bin\java.exe')) } }; $runtime = Join-Path $env:APPDATA '.minecraft\runtime\*\windows-x64\*\bin\java.exe'; Get-ChildItem -Path $runtime -File -ErrorAction SilentlyContinue | ForEach-Object { $candidates.Add($_.FullName) }; foreach ($java in ($candidates | Select-Object -Unique)) { if (Test-Path -LiteralPath $java) { $version = (& $java -version 2>&1 | Out-String); if ($version -match 'version ""17([.]|"")' -or $version -match 'openjdk 17') { Split-Path (Split-Path $java -Parent) -Parent; exit 0 } } }; exit 1"`) do set "JAVA_HOME=%%J"
+
+if not defined JAVA_HOME (
+    echo.
+    echo [ERROR] A Java 17 runtime could not be found.
+    echo Gradle 8.1.1 cannot run with Java 21.
+    echo Install a Java 17 JDK, or configure JAVA_HOME to point to it.
     pause
     exit /b 1
 )
+
+set "PATH=%JAVA_HOME%\bin;%PATH%"
+echo [INFO] Using Java 17: %JAVA_HOME%
+java -version
+echo.
 
 set "GRADLE_VERSION=8.1.1"
 set "GRADLE_ROOT=%LOCALAPPDATA%\PotatoCore"
