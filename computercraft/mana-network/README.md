@@ -81,3 +81,20 @@ delete mana_rx.lua
 ```
 
 Then run the download command again.
+
+### Replacing an existing copy
+
+CC:Tweaked's `wget` will not overwrite an existing filename. Since you already have test versions, delete each old file before downloading its replacement:
+
+**Mana Pool computer:**
+```text
+delete mana_tx.lua
+wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/mana-network/mana_tx.lua mana_tx.lua
+```
+
+**Remote monitor computer:**
+```text
+delete mana_rx.lua
+wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/mana-network/mana_rx.lua mana_rx.lua
+```
+
