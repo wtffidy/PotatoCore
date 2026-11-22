@@ -14,7 +14,7 @@
 -- ============================================================
 
 local CONFIG = {
-    modemSide = "front",
+    modemSide = "bottom",
     protocol = "potatocore_mana_multi_v1",
     updateInterval = 0.5
 }
