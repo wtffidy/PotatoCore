@@ -98,6 +98,23 @@ tasks.register('installToCurseForge') {
         }
         File builtJar = tasks.named('jar').get().archiveFile.get().asFile
         if (!builtJar.isFile()) throw new GradleException('Built JAR was not found: ' + builtJar.absolutePath)
+        // Remove previous PotatoCore builds first so Forge cannot load stale duplicate JARs.
+        File[] previousJars = mods.listFiles({ File file ->
+            file.isFile() && file.name.toLowerCase(Locale.ROOT).endsWith('.jar') &&
+                    (file.name.toLowerCase(Locale.ROOT).startsWith('potatocore') ||
+                            file.name.toLowerCase(Locale.ROOT).startsWith('potato_core'))
+        } as java.io.FileFilter)
+        int removedJars = 0
+        if (previousJars != null) {
+            for (File previousJar : previousJars) {
+                if (!previousJar.delete()) {
+                    throw new GradleException('Could not remove previous PotatoCore JAR: ' + previousJar.absolutePath)
+                }
+                removedJars++
+                println '[INFO] Removed old PotatoCore JAR: ' + previousJar.name
+            }
+        }
+
         copy {
             from builtJar
             into mods
@@ -105,6 +122,7 @@ tasks.register('installToCurseForge') {
         println ''
         println 'PotatoCore installed successfully:'
         println new File(mods, builtJar.name).absolutePath
+        println 'Previous PotatoCore JARs removed: ' + removedJars
         println 'Restart Minecraft if the instance is currently running.'
     }
 }
