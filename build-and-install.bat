@@ -55,7 +55,31 @@ echo [INFO] Source is up to date.
 echo.
 
 echo [INFO] Locating a Java 17 runtime...
-for /f "usebackq delims=" %%J in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = 'SilentlyContinue'; $candidates = [System.Collections.Generic.List[string]]::new(); if ($env:JAVA_HOME) { $candidates.Add((Join-Path $env:JAVA_HOME 'bin\java.exe')) }; $cmd = Get-Command java.exe -ErrorAction SilentlyContinue; if ($cmd) { $candidates.Add($cmd.Source) }; foreach ($base in @((Join-Path $env:ProgramFiles 'Eclipse Adoptium'), (Join-Path $env:ProgramFiles 'Microsoft'), (Join-Path $env:ProgramFiles 'Java'), (Join-Path $env:LOCALAPPDATA 'Programs\Eclipse Adoptium'))) { Get-ChildItem -LiteralPath $base -Directory -Filter 'jdk-17*' -ErrorAction SilentlyContinue | ForEach-Object { $candidates.Add((Join-Path $_.FullName 'bin\java.exe')) } }; $runtime = Join-Path $env:APPDATA '.minecraft\runtime\*\windows-x64\*\bin\java.exe'; Get-ChildItem -Path $runtime -File -ErrorAction SilentlyContinue | ForEach-Object { $candidates.Add($_.FullName) }; foreach ($java in ($candidates | Select-Object -Unique)) { if (Test-Path -LiteralPath $java) { $version = (& $java -version 2>&1 | Out-String); $match = [regex]::Match($version, '(?m)version\s+"?(\d+)'); if ($match.Success -and $match.Groups[1].Value -eq '17') { Split-Path (Split-Path $java -Parent) -Parent; exit 0 } } }; exit 1"`) do set "JAVA_HOME=%%J"
+set "JAVA_HOME="
+set "JAVA_RESULT=%TEMP%\PotatoCore-JavaHome.txt"
+if exist "%JAVA_RESULT%" del "%JAVA_RESULT%"
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = 'SilentlyContinue'; $candidates = [System.Collections.Generic.List[string]]::new(); if ($env:JAVA_HOME) { $candidates.Add((Join-Path $env:JAVA_HOME 'bin\java.exe')) }; $cmd = Get-Command java.exe -ErrorAction SilentlyContinue; if ($cmd) { $candidates.Add($cmd.Source) }; foreach ($base in @((Join-Path $env:ProgramFiles 'Eclipse Adoptium'), (Join-Path $env:ProgramFiles 'Microsoft'), (Join-Path $env:ProgramFiles 'Java'), (Join-Path $env:LOCALAPPDATA 'Programs\Eclipse Adoptium'))) { Get-ChildItem -LiteralPath $base -Directory -Filter 'jdk-17*' -ErrorAction SilentlyContinue | ForEach-Object { $candidates.Add((Join-Path $_.FullName 'bin\java.exe')) } }; $runtime = Join-Path $env:APPDATA '.minecraft\runtime\*\windows-x64\*\bin\java.exe'; Get-ChildItem -Path $runtime -File -ErrorAction SilentlyContinue | ForEach-Object { $candidates.Add($_.FullName) }; foreach ($java in ($candidates | Select-Object -Unique)) { if (Test-Path -LiteralPath $java) { $version = (& $java -version 2>&1 | Out-String); $match = [regex]::Match($version, '(?m)version\s+""?(\d+)'); if ($match.Success -and $match.Groups[1].Value -eq '17') { (Split-Path (Split-Path $java -Parent) -Parent) | Set-Content -LiteralPath '%JAVA_RESULT%' -NoNewline; exit 0 } } }; exit 1"
+if errorlevel 1 (
+    echo.
+    echo [ERROR] A Java 17 runtime could not be found.
+    echo Install a Java 17 JDK, or configure JAVA_HOME to point to it.
+    pause
+    exit /b 1
+)
+
+if not exist "%JAVA_RESULT%" (
+    echo [ERROR] Java detection did not return a valid installation path.
+    pause
+    exit /b 1
+)
+set /p "JAVA_HOME="<"%JAVA_RESULT%"
+del "%JAVA_RESULT%" >nul 2>nul
+if not exist "%JAVA_HOME%\bin\java.exe" (
+    echo [ERROR] The detected Java installation is invalid: %JAVA_HOME%
+    pause
+    exit /b 1
+)
 
 if not defined JAVA_HOME (
     echo.
