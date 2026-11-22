@@ -1,13 +1,12 @@
 -- ============================================================
--- POTATOCORE // MULTI-POOL MANA COMMAND
--- Remote dashboard for a 5x5 monitor wall
+-- POTATOCORE // MANA NETWORK DASHBOARD
+-- Clean, low-flicker dashboard for a 3x3 mana pool array.
 --
--- Hardware on this computer:
+-- Monitor computer hardware:
 --   BOTTOM = Ender Modem
---   TOP    = Monitor (or monitor network)
+--   TOP    = Monitor / monitor network
 --
--- Receives data from one or more mana_tx computers.
--- Each transmitter is identified by its ComputerCraft ID.
+-- Receives multi-pool telemetry from mana_tx.lua transmitters.
 -- ============================================================
 
 local CONFIG = {
@@ -15,8 +14,8 @@ local CONFIG = {
     monitorSide = "top",
     protocol = "potatocore_mana_multi_v1",
     transmitterTimeout = 6,
-    textScale = 0.5,
-    receiveInterval = 0.25
+    textScale = 0.7,
+    receiveInterval = 0.5
 }
 
 local modemType = peripheral.getType(CONFIG.modemSide)
@@ -32,13 +31,15 @@ end
 rednet.open(CONFIG.modemSide)
 
 monitor.setTextScale(CONFIG.textScale)
-monitor.setBackgroundColor(colors.black)
-monitor.setTextColor(colors.white)
 
 local width, height = monitor.getSize()
-local screen = window.create(monitor, 1, 1, width, height, true)
 
-local sources = {}
+-- Fall back slightly if the connected monitor is too small at 0.7.
+if width < 54 or height < 24 then
+    CONFIG.textScale = 0.5
+    monitor.setTextScale(CONFIG.textScale)
+    width, height = monitor.getSize()
+end
 
 local C = {
     background = colors.black,
@@ -52,15 +53,18 @@ local C = {
     blue = colors.lightBlue
 }
 
+local sources = {}
+local renderedRows = {}
+
+monitor.setBackgroundColor(C.background)
+monitor.setTextColor(C.white)
+monitor.clear()
+
 local function formatNumber(value)
     local result = tostring(math.floor(math.abs(value)))
 
     while true do
-        local formatted, count = result:gsub(
-            "^(%d+)(%d%d%d)",
-            "%1,%2"
-        )
-
+        local formatted, count = result:gsub("^(%d+)(%d%d%d)", "%1,%2")
         result = formatted
         if count == 0 then
             break
@@ -93,74 +97,65 @@ local function fit(value, maxLength)
     return value:sub(1, maxLength - 3) .. "..."
 end
 
-local function writeAt(x, y, value, foreground)
-    if y < 1 or y > height or x > width then
+local function formatDuration(seconds)
+    seconds = math.max(0, math.floor(seconds))
+
+    local days = math.floor(seconds / 86400)
+    local hours = math.floor((seconds % 86400) / 3600)
+    local minutes = math.floor((seconds % 3600) / 60)
+
+    if days > 0 then
+        return days .. "d " .. hours .. "h"
+    elseif hours > 0 then
+        return hours .. "h " .. minutes .. "m"
+    elseif minutes > 0 then
+        return minutes .. "m"
+    end
+
+    return seconds .. "s"
+end
+
+local function setRow(rows, rowColours, y, value, colour, centered)
+    if y < 1 or y > height then
         return
     end
 
-    value = tostring(value)
-    x = math.floor(x)
-
-    if x < 1 then
-        value = value:sub(2 - x)
-        x = 1
+    value = tostring(value or "")
+    if #value > width then
+        value = value:sub(1, width)
     end
 
-    value = value:sub(1, width - x + 1)
-    if #value == 0 then
-        return
+    if centered then
+        value = string.rep(" ", math.max(0, math.floor((width - #value) / 2))) .. value
     end
 
-    screen.setCursorPos(x, y)
-    screen.setTextColor(foreground or C.white)
-    screen.write(value)
+    rows[y] = value
+    rowColours[y] = colour or C.white
 end
 
-local function center(y, value, foreground)
-    local x = math.floor((width - #value) / 2) + 1
-    writeAt(x, y, value, foreground)
-end
+-- Only rows whose text or colour changed are written to the monitor.
+-- Avoiding clear() and full-screen redraws is what removes the flashing.
+local function renderRows(rows, rowColours)
+    for y = 1, height do
+        local value = rows[y] or ""
+        local colour = rowColours[y] or C.white
+        local colourCode = colors.toBlit(colour)
+        local cacheKey = value .. "|" .. colourCode
 
-local function horizontal(y, character, foreground)
-    writeAt(2, y, string.rep(character, math.max(0, width - 2)), foreground)
-end
+        if renderedRows[y] ~= cacheKey then
+            local line = fit(value, width)
+            line = line .. string.rep(" ", math.max(0, width - #line))
 
-local function drawFrame()
-    writeAt(1, 1, "+" .. string.rep("-", width - 2) .. "+", C.border)
-    writeAt(1, height, "+" .. string.rep("-", width - 2) .. "+", C.border)
+            monitor.setCursorPos(1, y)
+            monitor.blit(
+                line,
+                string.rep(colourCode, width),
+                string.rep(colors.toBlit(C.background), width)
+            )
 
-    for y = 2, height - 1 do
-        writeAt(1, y, "|", C.border)
-        writeAt(width, y, "|", C.border)
+            renderedRows[y] = cacheKey
+        end
     end
-end
-
-local function drawBar(y, percentage)
-    local barWidth = math.max(1, width - 14)
-    local filled = math.floor(barWidth * percentage / 100)
-    filled = math.max(0, math.min(barWidth, filled))
-
-    local x = math.floor((width - barWidth - 2) / 2) + 1
-
-    writeAt(x, y, "[", C.border)
-    writeAt(x + 1, y, string.rep("#", filled), C.green)
-    writeAt(
-        x + filled + 1,
-        y,
-        string.rep("-", barWidth - filled),
-        C.muted
-    )
-    writeAt(x + barWidth + 1, y, "]", C.border)
-end
-
-local function estimateTime(mana, maximum, rate)
-    if rate > 0.5 and mana < maximum then
-        return "FULL IN " .. math.floor((maximum - mana) / rate) .. "s"
-    elseif rate < -0.5 and mana > 0 then
-        return "EMPTY IN " .. math.floor(mana / math.abs(rate)) .. "s"
-    end
-
-    return "ETA --"
 end
 
 local function collectTotals()
@@ -203,30 +198,27 @@ local function collectTotals()
 end
 
 local function drawDashboard()
-    screen.setBackgroundColor(C.background)
-    screen.setTextColor(C.white)
-    screen.clear()
-
-    drawFrame()
+    local rows = {}
+    local rowColours = {}
 
     local pools, mana, maximum, rate, transmitters = collectTotals()
-
-    center(2, "POTATOCORE // MANA NETWORK", C.green)
-    center(3, "MULTI-POOL OPERATIONS CENTRE", C.blue)
-    horizontal(4, "=", C.border)
-
-    if #pools == 0 then
-        center(8, "WAITING FOR MANA TRANSMITTERS", C.orange)
-        center(10, "CHECK BOTH ENDER MODEMS", C.muted)
-        center(12, "PROTOCOL: " .. CONFIG.protocol, C.muted)
-        screen.redraw()
-        return
-    end
-
     local percentage = maximum > 0 and mana / maximum * 100 or 0
     percentage = math.max(0, math.min(100, percentage))
 
-    local status = "IDLE"
+    setRow(rows, rowColours, 1, "+" .. string.rep("=", math.max(0, width - 2)) .. "+", C.border)
+    setRow(rows, rowColours, 2, "POTATOCORE / MANA NETWORK", C.green, true)
+    setRow(rows, rowColours, 3, "NINE-POOL OPERATIONS", C.blue, true)
+    setRow(rows, rowColours, 4, string.rep("-", width), C.border)
+
+    if #pools == 0 then
+        setRow(rows, rowColours, 7, "WAITING FOR MANA TRANSMITTERS", C.orange, true)
+        setRow(rows, rowColours, 9, "CHECK THE TRANSMITTERS AND ENDER MODEMS", C.muted, true)
+        setRow(rows, rowColours, height, "+" .. string.rep("=", math.max(0, width - 2)) .. "+", C.border)
+        renderRows(rows, rowColours)
+        return
+    end
+
+    local status = "STABLE"
     local statusColour = C.muted
 
     if percentage >= 99.99 then
@@ -243,82 +235,129 @@ local function drawDashboard()
         statusColour = C.orange
     end
 
-    center(5, status, statusColour)
-    center(7, string.format("%.2f%%", percentage), C.cyan)
-    drawBar(9, percentage)
-
-    horizontal(11, "-", C.border)
-
-    center(12, "TOTAL NETWORK MANA", C.muted)
-    center(13, formatNumber(mana) .. " / " .. formatNumber(maximum), C.white)
-
-    center(
-        14,
-        "FLOW: " .. signedNumber(rate) .. " MANA/SEC",
-        rate > 0.5 and C.green or rate < -0.5 and C.red or C.muted
+    setRow(
+        rows,
+        rowColours,
+        5,
+        status .. "  |  " .. string.format("%.1f%% STORED", percentage),
+        statusColour,
+        true
     )
 
-    center(
-        15,
-        "POOLS: " .. #pools .. "  |  TRANSMITTERS: " .. transmitters,
-        C.blue
+    local barWidth = math.max(10, width - 4)
+    local filled = math.floor(barWidth * percentage / 100)
+    filled = math.max(0, math.min(barWidth, filled))
+    local bar = "[" .. string.rep("#", filled) .. string.rep("-", barWidth - filled) .. "]"
+    setRow(rows, rowColours, 6, bar, C.green, true)
+
+    setRow(
+        rows,
+        rowColours,
+        7,
+        "MANA  " .. formatNumber(mana) .. " / " .. formatNumber(maximum),
+        C.white,
+        true
     )
 
-    center(17, "INDIVIDUAL MANA POOLS", C.cyan)
-    horizontal(18, "-", C.border)
+    local flowText = "FLOW  " .. signedNumber(rate) .. "/s"
+    if rate > 0.5 and mana < maximum then
+        flowText = flowText .. "  |  FULL IN " .. formatDuration((maximum - mana) / rate)
+    elseif rate < -0.5 and mana > 0 then
+        flowText = flowText .. "  |  EMPTY IN " .. formatDuration(mana / math.abs(rate))
+    end
+    setRow(rows, rowColours, 8, flowText, rate > 0.5 and C.green or rate < -0.5 and C.orange or C.muted, true)
 
-    local listStart = 19
-    local listEnd = height - 3
-    local availableRows = math.max(0, listEnd - listStart + 1)
+    setRow(
+        rows,
+        rowColours,
+        9,
+        #pools .. " POOLS ONLINE  |  " .. transmitters .. " TRANSMITTERS",
+        C.blue,
+        true
+    )
+
+    setRow(rows, rowColours, 10, string.rep("-", width), C.border)
+    setRow(rows, rowColours, 11, "POOL             STORED / MAXIMUM         FILL    FLOW", C.cyan)
+
+    local fullCount = 0
+    local lowCount = 0
+    local chargingCount = 0
+    local drainingCount = 0
+    local firstPoolRow = 12
+    local lastPoolRow = math.min(height - 3, firstPoolRow + #pools - 1)
+    local visiblePools = math.max(0, lastPoolRow - firstPoolRow + 1)
 
     for index, pool in ipairs(pools) do
-        if index > availableRows then
-            writeAt(4, listEnd, "+" .. ( #pools - index + 1 ) .. " MORE POOLS", C.orange)
-            break
+        local poolPercentage = pool.maximum > 0 and pool.mana / pool.maximum * 100 or 0
+
+        if poolPercentage >= 99.99 then
+            fullCount = fullCount + 1
+        elseif poolPercentage <= 5 then
+            lowCount = lowCount + 1
+        elseif pool.rate > 0.5 then
+            chargingCount = chargingCount + 1
+        elseif pool.rate < -0.5 then
+            drainingCount = drainingCount + 1
         end
 
-        local y = listStart + index - 1
-        local poolPercentage = pool.maximum > 0
-            and pool.mana / pool.maximum * 100
-            or 0
+        if index <= visiblePools then
+            local label = string.format("POOL %02d [PC%d]", index, pool.computer)
+            local manaText = fit(formatNumber(pool.mana), 10)
+            local maxText = fit(formatNumber(pool.maximum), 10)
+            local flowText = signedNumber(pool.rate) .. "/s"
 
-        local name = "PC" .. pool.computer .. "/" .. pool.name
-        local rateText = signedNumber(pool.rate) .. "/s"
+            local line = string.format(
+                "%-14s %10s/%-10s %5.1f%% %s",
+                label,
+                manaText,
+                maxText,
+                poolPercentage,
+                flowText
+            )
 
-        local lineText = string.format(
-            "%-18s %5.1f%%  %s/%s  %s",
-            fit(name, 18),
-            poolPercentage,
-            formatNumber(pool.mana),
-            formatNumber(pool.maximum),
-            rateText
-        )
+            local colour = poolPercentage >= 99.99 and C.cyan
+                or poolPercentage <= 5 and C.red
+                or pool.rate > 0.5 and C.green
+                or pool.rate < -0.5 and C.orange
+                or C.white
 
-        local colour = poolPercentage >= 99.99 and C.cyan
-            or poolPercentage <= 5 and C.red
-            or C.white
-
-        writeAt(3, y, lineText, colour)
+            setRow(rows, rowColours, firstPoolRow + index - 1, line, colour)
+        end
     end
 
-    horizontal(height - 2, "-", C.border)
-    writeAt(3, height - 1, "POTATOCORE", C.green)
-    writeAt(width - 15, height - 1, "LINK: ONLINE", C.green)
+    if #pools > visiblePools and height - 3 >= firstPoolRow then
+        setRow(
+            rows,
+            rowColours,
+            height - 3,
+            "+" .. (#pools - visiblePools) .. " MORE POOLS",
+            C.orange
+        )
+    end
 
-    screen.redraw()
+    setRow(rows, rowColours, height - 2, string.rep("-", width), C.border)
+    setRow(
+        rows,
+        rowColours,
+        height - 1,
+        "FULL " .. fullCount .. "  |  LOW " .. lowCount
+            .. "  |  CHARGING " .. chargingCount
+            .. "  |  DRAINING " .. drainingCount,
+        C.blue
+    )
+    setRow(rows, rowColours, height, "+" .. string.rep("=", math.max(0, width - 2)) .. "+", C.border)
+
+    renderRows(rows, rowColours)
 end
 
-print("POTATOCORE // MANA NETWORK")
+print("POTATOCORE / MANA NETWORK")
 print("Monitor: " .. CONFIG.monitorSide:upper())
 print("Ender Modem: " .. CONFIG.modemSide:upper())
-print("Protocol: " .. CONFIG.protocol)
-print("Waiting for transmitters...")
+print("Text scale: " .. CONFIG.textScale)
+print("Waiting for mana transmitters...")
 
 while true do
-    local senderId, message = rednet.receive(
-        CONFIG.protocol,
-        CONFIG.receiveInterval
-    )
+    local senderId, message = rednet.receive(CONFIG.protocol, CONFIG.receiveInterval)
 
     if senderId
         and type(message) == "table"
@@ -337,7 +376,7 @@ while true do
 
                 cleanPools[#cleanPools + 1] = {
                     name = pool.name,
-                    mana = pool.mana,
+                    mana = math.max(0, pool.mana),
                     maximum = pool.maximum,
                     rate = pool.rate
                 }
@@ -351,12 +390,17 @@ while true do
     end
 
     local now = os.epoch("utc")
+    local expired = false
 
     for computerId, source in pairs(sources) do
         if now - source.seen > CONFIG.transmitterTimeout * 1000 then
             sources[computerId] = nil
+            expired = true
         end
     end
 
-    drawDashboard()
+    -- Draw only when new data arrives or a transmitter expires.
+    if senderId or expired then
+        drawDashboard()
+    end
 end
