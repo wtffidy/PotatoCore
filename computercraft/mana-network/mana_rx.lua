@@ -1,6 +1,6 @@
 -- ============================================================
--- POTATOCORE // MANA NETWORK DASHBOARD
--- Clean, low-flicker dashboard for a 3x3 mana pool array.
+-- POTATOCORE // MANA CORE
+-- Autonomous mana-array telemetry and reactor-style dashboard.
 --
 -- Monitor computer hardware:
 --   BOTTOM = Ender Modem
@@ -14,6 +14,7 @@ local CONFIG = {
     monitorSide = "top",
     protocol = "potatocore_mana_multi_v1",
     transmitterTimeout = 6,
+    expectedPools = 9,
     textScale = 0.7,
     receiveInterval = 0.5
 }
@@ -34,8 +35,8 @@ monitor.setTextScale(CONFIG.textScale)
 
 local width, height = monitor.getSize()
 
--- Fall back slightly if the connected monitor is too small at 0.7.
-if width < 54 or height < 24 then
+-- The 3x3 card layout needs room for its labels and footer.
+if width < 90 or height < 30 then
     CONFIG.textScale = 0.5
     monitor.setTextScale(CONFIG.textScale)
     width, height = monitor.getSize()
@@ -50,15 +51,41 @@ local C = {
     green = colors.lime,
     red = colors.red,
     orange = colors.orange,
-    blue = colors.lightBlue
+    blue = colors.lightBlue,
+    purple = colors.purple
 }
 
 local sources = {}
 local renderedRows = {}
+local startedAt = os.epoch("utc")
 
 monitor.setBackgroundColor(C.background)
 monitor.setTextColor(C.white)
 monitor.clear()
+
+local function compactNumber(value)
+    value = math.abs(value)
+
+    if value >= 1000000000 then
+        return string.format("%.2fB", value / 1000000000)
+    elseif value >= 1000000 then
+        return string.format("%.2fM", value / 1000000)
+    elseif value >= 1000 then
+        return string.format("%.1fK", value / 1000)
+    end
+
+    return tostring(math.floor(value))
+end
+
+local function signedCompact(value)
+    if value > 0 then
+        return "+" .. compactNumber(value)
+    elseif value < 0 then
+        return "-" .. compactNumber(value)
+    end
+
+    return "0"
+end
 
 local function formatNumber(value)
     local result = tostring(math.floor(math.abs(value)))
@@ -72,29 +99,6 @@ local function formatNumber(value)
     end
 
     return result
-end
-
-local function signedNumber(value)
-    if value > 0 then
-        return "+" .. formatNumber(value)
-    elseif value < 0 then
-        return "-" .. formatNumber(value)
-    end
-
-    return "0"
-end
-
-local function fit(value, maxLength)
-    value = tostring(value)
-    if #value <= maxLength then
-        return value
-    end
-
-    if maxLength <= 3 then
-        return value:sub(1, maxLength)
-    end
-
-    return value:sub(1, maxLength - 3) .. "..."
 end
 
 local function formatDuration(seconds)
@@ -115,44 +119,92 @@ local function formatDuration(seconds)
     return seconds .. "s"
 end
 
-local function setRow(rows, rowColours, y, value, colour, centered)
-    if y < 1 or y > height then
+local function fit(value, maxLength)
+    value = tostring(value)
+
+    if #value <= maxLength then
+        return value
+    end
+
+    if maxLength <= 3 then
+        return value:sub(1, maxLength)
+    end
+
+    return value:sub(1, maxLength - 3) .. "..."
+end
+
+local function newCanvas()
+    local canvas = {
+        chars = {},
+        foreground = {},
+        background = {}
+    }
+
+    local foreground = colors.toBlit(C.white)
+    local background = colors.toBlit(C.background)
+
+    for y = 1, height do
+        canvas.chars[y] = {}
+        canvas.foreground[y] = {}
+        canvas.background[y] = {}
+
+        for x = 1, width do
+            canvas.chars[y][x] = " "
+            canvas.foreground[y][x] = foreground
+            canvas.background[y][x] = background
+        end
+    end
+
+    return canvas
+end
+
+local function writeAt(canvas, x, y, value, foreground, background)
+    if y < 1 or y > height or x > width then
         return
     end
 
     value = tostring(value or "")
-    if #value > width then
-        value = value:sub(1, width)
-    end
+    local foregroundCode = colors.toBlit(foreground or C.white)
+    local backgroundCode = colors.toBlit(background or C.background)
 
-    if centered then
-        value = string.rep(" ", math.max(0, math.floor((width - #value) / 2))) .. value
-    end
+    for index = 1, #value do
+        local position = x + index - 1
 
-    rows[y] = value
-    rowColours[y] = colour or C.white
+        if position >= 1 and position <= width then
+            canvas.chars[y][position] = value:sub(index, index)
+            canvas.foreground[y][position] = foregroundCode
+            canvas.background[y][position] = backgroundCode
+        end
+    end
 end
 
--- Only rows whose text or colour changed are written to the monitor.
--- Avoiding clear() and full-screen redraws is what removes the flashing.
-local function renderRows(rows, rowColours)
+local function writeCentered(canvas, y, value, foreground)
+    value = tostring(value)
+    local x = math.floor((width - #value) / 2) + 1
+    writeAt(canvas, x, y, value, foreground)
+end
+
+local function writeRight(canvas, y, x, value, foreground)
+    value = tostring(value)
+    writeAt(canvas, x - #value + 1, y, value, foreground)
+end
+
+local function writeRule(canvas, y, character, foreground)
+    writeAt(canvas, 1, y, string.rep(character, width), foreground)
+end
+
+-- Only changed rows are sent to the monitor. This avoids full-screen
+-- clearing and redraws, which cause visible flashing.
+local function renderCanvas(canvas)
     for y = 1, height do
-        local value = rows[y] or ""
-        local colour = rowColours[y] or C.white
-        local colourCode = colors.toBlit(colour)
-        local cacheKey = value .. "|" .. colourCode
+        local characters = table.concat(canvas.chars[y])
+        local foreground = table.concat(canvas.foreground[y])
+        local background = table.concat(canvas.background[y])
+        local cacheKey = characters .. foreground .. background
 
         if renderedRows[y] ~= cacheKey then
-            local line = fit(value, width)
-            line = line .. string.rep(" ", math.max(0, width - #line))
-
             monitor.setCursorPos(1, y)
-            monitor.blit(
-                line,
-                string.rep(colourCode, width),
-                string.rep(colors.toBlit(C.background), width)
-            )
-
+            monitor.blit(characters, foreground, background)
             renderedRows[y] = cacheKey
         end
     end
@@ -197,97 +249,176 @@ local function collectTotals()
     return allPools, totalMana, totalMaximum, totalRate, activeTransmitters
 end
 
-local function drawDashboard()
-    local rows = {}
-    local rowColours = {}
+local function getPoolStatus(pool, percentage)
+    if percentage >= 99.99 then
+        return "FULL", C.cyan
+    elseif percentage <= 5 then
+        return "LOW", C.red
+    elseif pool.rate > 0.5 then
+        return "CHARGING", C.green
+    elseif pool.rate < -0.5 then
+        return "DRAINING", C.orange
+    end
 
+    return "STABLE", C.blue
+end
+
+local function drawPoolCard(canvas, index, pool, x, y, cardWidth)
+    local right = x + cardWidth - 1
+    local innerWidth = cardWidth - 2
+    local top = "+" .. string.rep("-", innerWidth) .. "+"
+    local bottom = top
+
+    writeAt(canvas, x, y, top, C.border)
+    writeAt(canvas, x, y + 5, bottom, C.border)
+
+    if not pool then
+        writeAt(canvas, x, y + 1, "|", C.border)
+        writeAt(canvas, x + 1, y + 1, fit("POOL " .. string.format("%02d", index), innerWidth), C.muted)
+        writeAt(canvas, right, y + 1, "|", C.border)
+
+        writeAt(canvas, x, y + 2, "|", C.border)
+        writeAt(canvas, x + 1, y + 2, fit("NO SIGNAL", innerWidth), C.orange)
+        writeAt(canvas, right, y + 2, "|", C.border)
+
+        writeAt(canvas, x, y + 3, "|", C.border)
+        writeAt(canvas, x + 1, y + 3, fit("CHECK NODE LINK", innerWidth), C.muted)
+        writeAt(canvas, right, y + 3, "|", C.border)
+
+        writeAt(canvas, x, y + 4, "|", C.border)
+        writeAt(canvas, x + 1, y + 4, fit("WAITING...", innerWidth), C.muted)
+        writeAt(canvas, right, y + 4, "|", C.border)
+        return
+    end
+
+    local percentage = pool.maximum > 0 and pool.mana / pool.maximum * 100 or 0
+    percentage = math.max(0, math.min(100, percentage))
+    local status, statusColour = getPoolStatus(pool, percentage)
+    local nodeName = "POOL " .. string.format("%02d", index) .. " // NODE " .. pool.computer
+
+    writeAt(canvas, x, y + 1, "|", C.border)
+    writeAt(canvas, x + 1, y + 1, fit(nodeName, innerWidth), C.cyan)
+    writeAt(canvas, right, y + 1, "|", C.border)
+
+    local statusText = status .. "  " .. string.format("%5.1f%%", percentage)
+    writeAt(canvas, x, y + 2, "|", C.border)
+    writeAt(canvas, x + 1, y + 2, fit(statusText, innerWidth), statusColour)
+    writeAt(canvas, right, y + 2, "|", C.border)
+
+    local barWidth = math.max(4, innerWidth - 4)
+    local filled = math.floor(barWidth * percentage / 100)
+    filled = math.max(0, math.min(barWidth, filled))
+
+    writeAt(canvas, x, y + 3, "|", C.border)
+    writeAt(canvas, x + 1, y + 3, "[", C.muted)
+    writeAt(canvas, x + 2, y + 3, string.rep("#", filled), C.green)
+    writeAt(canvas, x + filled + 2, y + 3, string.rep("-", barWidth - filled), C.muted)
+    writeAt(canvas, x + barWidth + 2, y + 3, "]", C.muted)
+    writeAt(canvas, right, y + 3, "|", C.border)
+
+    local stats = compactNumber(pool.mana) .. "/" .. compactNumber(pool.maximum)
+        .. "  " .. signedCompact(pool.rate) .. "/s"
+
+    writeAt(canvas, x, y + 4, "|", C.border)
+    writeAt(canvas, x + 1, y + 4, fit(stats, innerWidth), C.white)
+    writeAt(canvas, right, y + 4, "|", C.border)
+end
+
+local function drawDashboard()
+    local canvas = newCanvas()
     local pools, mana, maximum, rate, transmitters = collectTotals()
     local percentage = maximum > 0 and mana / maximum * 100 or 0
     percentage = math.max(0, math.min(100, percentage))
 
-    setRow(rows, rowColours, 1, "+" .. string.rep("=", math.max(0, width - 2)) .. "+", C.border)
-    setRow(rows, rowColours, 2, "POTATOCORE / MANA NETWORK", C.green, true)
-    setRow(rows, rowColours, 3, "NINE-POOL OPERATIONS", C.blue, true)
-    setRow(rows, rowColours, 4, string.rep("-", width), C.border)
+    local networkStatus = "SYSTEM STANDBY"
+    local statusColour = C.blue
 
-    if #pools == 0 then
-        setRow(rows, rowColours, 7, "WAITING FOR MANA TRANSMITTERS", C.orange, true)
-        setRow(rows, rowColours, 9, "CHECK THE TRANSMITTERS AND ENDER MODEMS", C.muted, true)
-        setRow(rows, rowColours, height, "+" .. string.rep("=", math.max(0, width - 2)) .. "+", C.border)
-        renderRows(rows, rowColours)
-        return
-    end
-
-    local status = "STABLE"
-    local statusColour = C.muted
-
-    if percentage >= 99.99 then
-        status = "NETWORK FULL"
+    if #pools < CONFIG.expectedPools then
+        networkStatus = "PARTIAL LINK"
+        statusColour = C.orange
+    elseif percentage >= 99.99 then
+        networkStatus = "CAPACITY REACHED"
         statusColour = C.cyan
     elseif percentage <= 5 then
-        status = "LOW MANA"
+        networkStatus = "CRITICAL MANA"
         statusColour = C.red
     elseif rate > 0.5 then
-        status = "CHARGING"
+        networkStatus = "MANA CHARGING"
         statusColour = C.green
     elseif rate < -0.5 then
-        status = "DISCHARGING"
+        networkStatus = "MANA DISCHARGING"
         statusColour = C.orange
     end
 
-    setRow(
-        rows,
-        rowColours,
-        5,
-        status .. "  |  " .. string.format("%.1f%% STORED", percentage),
-        statusColour,
-        true
-    )
+    -- Main reactor header.
+    writeAt(canvas, 1, 1, "+" .. string.rep("=", width - 2) .. "+", C.border)
+    writeCentered(canvas, 2, "POTATOCORE // MANA CORE", C.green)
+    writeCentered(canvas, 3, "AUTONOMOUS MANA DISTRIBUTION SYSTEM", C.blue)
+    writeRule(canvas, 4, "=", C.border)
 
-    local barWidth = math.max(10, width - 4)
+    writeAt(canvas, 3, 5, "[SYS] " .. networkStatus, statusColour)
+    writeRight(canvas, 5, width - 2, "[LINK] " .. transmitters .. "/" .. CONFIG.expectedPools .. " NODES", C.cyan)
+
+    -- Network-wide charge bar.
+    local barWidth = math.max(10, width - 8)
     local filled = math.floor(barWidth * percentage / 100)
     filled = math.max(0, math.min(barWidth, filled))
-    local bar = "[" .. string.rep("#", filled) .. string.rep("-", barWidth - filled) .. "]"
-    setRow(rows, rowColours, 6, bar, C.green, true)
+    local barX = math.floor((width - barWidth - 2) / 2) + 1
 
-    setRow(
-        rows,
-        rowColours,
+    writeAt(canvas, barX, 6, "[", C.border)
+    writeAt(canvas, barX + 1, 6, string.rep("#", filled), C.green)
+    writeAt(canvas, barX + filled + 1, 6, string.rep("-", barWidth - filled), C.muted)
+    writeAt(canvas, barX + barWidth + 1, 6, "]", C.border)
+
+    writeCentered(
+        canvas,
         7,
-        "MANA  " .. formatNumber(mana) .. " / " .. formatNumber(maximum),
-        C.white,
-        true
+        "STORAGE  " .. formatNumber(mana) .. " / " .. formatNumber(maximum)
+            .. "  [" .. string.format("%.1f", percentage) .. "%]",
+        C.white
     )
 
-    local flowText = "FLOW  " .. signedNumber(rate) .. "/s"
+    local flowText = "THROUGHPUT  " .. signedCompact(rate) .. " MANA/SEC"
     if rate > 0.5 and mana < maximum then
-        flowText = flowText .. "  |  FULL IN " .. formatDuration((maximum - mana) / rate)
+        flowText = flowText .. "  //  FULL IN " .. formatDuration((maximum - mana) / rate)
     elseif rate < -0.5 and mana > 0 then
-        flowText = flowText .. "  |  EMPTY IN " .. formatDuration(mana / math.abs(rate))
+        flowText = flowText .. "  //  EMPTY IN " .. formatDuration(mana / math.abs(rate))
     end
-    setRow(rows, rowColours, 8, flowText, rate > 0.5 and C.green or rate < -0.5 and C.orange or C.muted, true)
 
-    setRow(
-        rows,
-        rowColours,
-        9,
-        #pools .. " POOLS ONLINE  |  " .. transmitters .. " TRANSMITTERS",
-        C.blue,
-        true
+    writeCentered(
+        canvas,
+        8,
+        fit(flowText, width - 4),
+        rate > 0.5 and C.green or rate < -0.5 and C.orange or C.muted
     )
 
-    setRow(rows, rowColours, 10, string.rep("-", width), C.border)
-    setRow(rows, rowColours, 11, "POOL             STORED / MAXIMUM         FILL    FLOW", C.cyan)
+    writeRule(canvas, 9, "-", C.border)
+    writeCentered(canvas, 10, "/// 3x3 POOL ARRAY // LIVE TELEMETRY ///", C.cyan)
 
+    -- Three columns of pool cards. One card is reserved for each expected pool.
+    local columns = 3
+    local gap = 2
+    local cardWidth = math.floor((width - 4 - gap * (columns - 1)) / columns)
+    local firstX = math.floor((width - (cardWidth * columns + gap * (columns - 1))) / 2) + 1
+    local firstY = 11
+    local displayCount = math.min(CONFIG.expectedPools, 9)
+
+    for index = 1, displayCount do
+        local column = (index - 1) % columns
+        local row = math.floor((index - 1) / columns)
+        local x = firstX + column * (cardWidth + gap)
+        local y = firstY + row * 6
+
+        drawPoolCard(canvas, index, pools[index], x, y, cardWidth)
+    end
+
+    -- Compact diagnostics footer.
     local fullCount = 0
     local lowCount = 0
     local chargingCount = 0
     local drainingCount = 0
-    local firstPoolRow = 12
-    local lastPoolRow = math.min(height - 3, firstPoolRow + #pools - 1)
-    local visiblePools = math.max(0, lastPoolRow - firstPoolRow + 1)
 
-    for index, pool in ipairs(pools) do
+    for _, pool in ipairs(pools) do
         local poolPercentage = pool.maximum > 0 and pool.mana / pool.maximum * 100 or 0
 
         if poolPercentage >= 99.99 then
@@ -299,64 +430,31 @@ local function drawDashboard()
         elseif pool.rate < -0.5 then
             drainingCount = drainingCount + 1
         end
-
-        if index <= visiblePools then
-            local label = string.format("POOL %02d [PC%d]", index, pool.computer)
-            local manaText = fit(formatNumber(pool.mana), 10)
-            local maxText = fit(formatNumber(pool.maximum), 10)
-            local flowText = signedNumber(pool.rate) .. "/s"
-
-            local line = string.format(
-                "%-14s %10s/%-10s %5.1f%% %s",
-                label,
-                manaText,
-                maxText,
-                poolPercentage,
-                flowText
-            )
-
-            local colour = poolPercentage >= 99.99 and C.cyan
-                or poolPercentage <= 5 and C.red
-                or pool.rate > 0.5 and C.green
-                or pool.rate < -0.5 and C.orange
-                or C.white
-
-            setRow(rows, rowColours, firstPoolRow + index - 1, line, colour)
-        end
     end
 
-    if #pools > visiblePools and height - 3 >= firstPoolRow then
-        setRow(
-            rows,
-            rowColours,
-            height - 3,
-            "+" .. (#pools - visiblePools) .. " MORE POOLS",
-            C.orange
-        )
-    end
-
-    setRow(rows, rowColours, height - 2, string.rep("-", width), C.border)
-    setRow(
-        rows,
-        rowColours,
+    local uptime = formatDuration((os.epoch("utc") - startedAt) / 1000)
+    writeRule(canvas, height - 2, "-", C.border)
+    writeAt(
+        canvas,
+        3,
         height - 1,
-        "FULL " .. fullCount .. "  |  LOW " .. lowCount
-            .. "  |  CHARGING " .. chargingCount
-            .. "  |  DRAINING " .. drainingCount,
+        "FULL " .. fullCount .. "  LOW " .. lowCount
+            .. "  CHG " .. chargingCount .. "  DRAIN " .. drainingCount,
         C.blue
     )
-    setRow(rows, rowColours, height, "+" .. string.rep("=", math.max(0, width - 2)) .. "+", C.border)
+    writeRight(canvas, height - 1, width - 2, "UP " .. uptime .. " // RX ONLINE", C.green)
+    writeAt(canvas, 1, height, "+" .. string.rep("=", width - 2) .. "+", C.border)
 
-    renderRows(rows, rowColours)
+    renderCanvas(canvas)
 end
 
-drawDashboard()
-
-print("POTATOCORE / MANA NETWORK")
+print("POTATOCORE // MANA CORE")
 print("Monitor: " .. CONFIG.monitorSide:upper())
 print("Ender Modem: " .. CONFIG.modemSide:upper())
-print("Text scale: " .. CONFIG.textScale)
+print("Display: 3x3 reactor dashboard")
 print("Waiting for mana transmitters...")
+
+drawDashboard()
 
 while true do
     local senderId, message = rednet.receive(CONFIG.protocol, CONFIG.receiveInterval)
@@ -401,7 +499,8 @@ while true do
         end
     end
 
-    -- Draw only when new data arrives or a transmitter expires.
+    -- Refresh only when a packet arrives or a transmitter expires.
+    -- The row cache keeps unchanged monitor content untouched.
     if senderId or expired then
         drawDashboard()
     end
