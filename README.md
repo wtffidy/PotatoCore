@@ -73,3 +73,22 @@ Automatic update checks are enabled by default and can be disabled in `config/po
 Every successful push to `main` builds a versioned JAR and publishes it as a GitHub Release. Pull requests are build-checked but do not publish releases.
 
 Downloads: https://github.com/wtffidy/PotatoCore/releases/latest
+
+## ComputerCraft mana network
+
+PotatoCore also includes standalone CC:Tweaked scripts for monitoring multiple Botania Mana Pools over Ender Modems. The transmitter discovers accessible Mana Pool peripherals, and the remote monitor combines data from multiple transmitter computers.
+
+See the [ComputerCraft Mana Network guide](computercraft/mana-network/README.md) for the confirmed Project Infinity wiring layout, setup steps, and download commands.
+
+Quick downloads from the CraftOS shell:
+
+**Mana Pool computer:**
+```text
+wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/mana-network/mana_tx.lua mana_tx.lua
+```
+
+**Remote monitor computer:**
+```text
+wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/mana-network/mana_rx.lua mana_rx.lua
+```
+
