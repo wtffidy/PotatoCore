@@ -506,6 +506,11 @@ public final class PotatoCoreScreen extends Screen {
     }
 
     @Override
+    public void renderBackground(GuiGraphics graphics) {
+        // Keep the game world visible; PotatoCore draws its own translucent panel.
+    }
+
+    @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         ClickMode rightMode = ClickerController.getRightMode();
         if (rightMode != displayedRightMode) {
