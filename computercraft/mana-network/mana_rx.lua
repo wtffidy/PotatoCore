@@ -504,7 +504,7 @@ local function drawDashboard()
     local panelWidth = math.floor((width - 4 - panelGap) / 2)
     local panelY = 29
     local panelX = 3
-    local maxRows = math.max(1, height - 32)
+    local maxRows = math.max(1, height - 33)
 
     if height >= 34 and panelWidth >= 24 then
         drawAuxPanel(
@@ -529,8 +529,8 @@ local function drawDashboard()
     else
         writeCentered(
             canvas,
-            29,
-            "ELVEN PORTAL: " .. #elvenPools .. "  |  MATERIALS EXCHANGE: " .. #materialsPools,
+            math.min(29, height - 3),
+            "ELVEN: " .. #elvenPools .. "  |  MATERIALS: " .. #materialsPools,
             C.purple
         )
     end
