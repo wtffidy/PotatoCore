@@ -43,6 +43,8 @@ if errorlevel 1 (
     exit /b 1
 )
 
+for /f "delims=" %%H in ('git rev-parse HEAD') do set "HEAD_BEFORE_PULL=%%H"
+
 echo [INFO] Pulling the latest PotatoCore from GitHub...
 git pull --ff-only origin main
 if errorlevel 1 (
@@ -50,6 +52,13 @@ if errorlevel 1 (
     echo [ERROR] Git pull failed. Check your connection and local repository state.
     pause
     exit /b 1
+)
+for /f "delims=" %%H in ('git rev-parse HEAD') do set "HEAD_AFTER_PULL=%%H"
+if not "%HEAD_BEFORE_PULL%"=="%HEAD_AFTER_PULL%" (
+    echo.
+    echo [INFO] The installer was updated. Restarting the latest version...
+    call "%~f0"
+    exit /b
 )
 echo [INFO] Source is up to date.
 echo.
