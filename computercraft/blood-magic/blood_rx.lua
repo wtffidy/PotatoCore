@@ -15,7 +15,7 @@ local CONFIG = {
     monitorSide = "top",
     protocol = "potatocore_blood_altar_v1",
     transmitterTimeout = 6,
-    textScale = 3.0,
+    textScale = 1.5,
     receiveInterval = 0.5
 }
 
