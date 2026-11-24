@@ -2,23 +2,23 @@
 
 Remote Blood Magic altar telemetry for CC:Tweaked and Advanced Peripherals.
 
-## Hardware
+## Hardware layout
 
 ### Altar transmitter computer
-- Ender Modem attached to `bottom`.
-- Advanced Peripherals Block Reader connected to the computer using a wired modem network.
+- Ender Modem attached to the computer's **bottom**.
+- Block Reader positioned above the Blood Altar and connected to the altar computer through the wired peripheral network.
 - The Block Reader must face the Blood Altar.
-- The Block Reader peripheral must be visible to the computer.
+- The transmitter discovers the Block Reader by peripheral type, so it does not depend on a fixed side.
 
 ### Remote monitor computer
-- Monitor or monitor network attached to `top`.
-- Ender Modem attached to `bottom`.
+- 5-wide x 4-tall monitor connected to the computer's **back**.
+- Ender Modem attached to the computer's **left**.
 
 The transmitter reads the Blood Altar's `bloodAltar` block-entity data. It does not modify the altar.
 
 ## Install transmitter
 
-Run these on the computer connected to the Block Reader:
+Run these on the altar computer:
 
 ```text
 delete blood_tx.lua
@@ -27,11 +27,9 @@ wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/blo
 startup.lua
 ```
 
-The startup file automatically launches the transmitter after that computer reboots.
-
 ## Install receiver
 
-Run these on the computer connected to the monitor and Ender Modem:
+Run these on the monitor computer:
 
 ```text
 delete blood_rx.lua
@@ -40,24 +38,25 @@ wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/blo
 startup.lua
 ```
 
-To run the receiver manually without installing automatic startup, simply run `blood_rx.lua` instead of `startup.lua`.
+The receiver requests text scale 1.5 when the attached monitor exposes the `setTextScale` method. If it does not, it keeps the monitor's current scale and continues instead of crashing.
+
+The startup file automatically launches the corresponding script after reboot. These commands replace the computer's existing `startup.lua`.
 
 ## Data displayed
 
 - Stored Life Essence amount and altar capacity.
-- Altar tier.
-- Active / idle state.
+- Altar tier and active / idle state.
 - Input item and stack count.
-- Current crafting progress against the recipe's LP requirement.
+- Current recipe progress and progress decay warning.
 - Consumption and drain rates.
 - Charging Rune buffer and buffer capacity.
 - Transmitter online status.
 
-The receiver uses a separate Rednet protocol: `potatocore_blood_altar_v1`. It can run independently of the Botania mana monitor.
+The receiver uses the Rednet protocol `potatocore_blood_altar_v1` and runs independently of the Botania mana monitor.
 
 ## Diagnostic probe
 
-To inspect the altar's raw Block Reader data:
+To inspect the raw Block Reader data:
 
 ```text
 wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/blood-magic/blood_probe.lua blood_probe.lua
