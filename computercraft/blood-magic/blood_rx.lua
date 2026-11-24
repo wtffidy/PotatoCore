@@ -2,17 +2,16 @@
 -- POTATOCORE // BLOOD ALTAR MONITOR
 -- Remote Blood Magic altar dashboard.
 --
--- Monitor computer hardware:
---   Monitor: TOP
---   Ender Modem: BOTTOM
+-- Monitor PC:
+--   5-wide x 4-tall monitor attached to BACK
+--   Ender Modem attached to LEFT
 --
--- Receives telemetry from blood_tx.lua over Ender Modem.
--- Cached row rendering prevents full-screen flicker.
+-- Uses the same protocol as blood_tx.lua.
 -- ============================================================
 
 local CONFIG = {
-    modemSide = "bottom",
-    monitorSide = "top",
+    modemSide = "left",
+    monitorSide = "back",
     protocol = "potatocore_blood_altar_v1",
     transmitterTimeout = 6,
     textScale = 1.5,
@@ -23,370 +22,206 @@ if peripheral.getType(CONFIG.modemSide) ~= "modem" then
     error("Ender Modem not found on " .. CONFIG.modemSide:upper() .. "!")
 end
 
+if peripheral.getType(CONFIG.monitorSide) ~= "monitor" then
+    print("Peripheral on BACK: " .. tostring(peripheral.getType(CONFIG.monitorSide)))
+    error("Monitor not found on BACK. Check the monitor connection.")
+end
+
 local monitor = peripheral.wrap(CONFIG.monitorSide)
 if not monitor then
-    error("Monitor not found on " .. CONFIG.monitorSide:upper() .. "!")
+    error("Could not wrap monitor on BACK.")
 end
 
 rednet.open(CONFIG.modemSide)
-monitor.setTextScale(CONFIG.textScale)
+
+-- Some monitor peripherals/wrappers may not expose setTextScale.
+-- Use 1.5 when available; otherwise continue with the monitor's current scale.
+local scaleSupported = type(monitor.setTextScale) == "function"
+if scaleSupported then
+    local scaleOk, scaleError = pcall(monitor.setTextScale, CONFIG.textScale)
+    if not scaleOk then
+        printError("Could not set monitor scale: " .. tostring(scaleError))
+        scaleSupported = false
+    end
+else
+    printError("Monitor has no setTextScale method; keeping its current scale.")
+end
 
 local width, height = monitor.getSize()
-
--- Grandpa Mode MAX: keep the requested 3.0 font scale.
--- The dashboard switches to a minimal layout instead of shrinking text.
-local ultraCompactLayout = width < 36 or height < 22
-local compactLayout = width < 58 or height < 30
+local source
+local lastError
+local previousRows = {}
+local previousProgress
+local previousRecipe
 
 local C = {
     background = colors.black,
-    white = colors.white,
+    text = colors.white,
     muted = colors.gray,
-    border = colors.red,
     red = colors.red,
     orange = colors.orange,
     green = colors.lime,
     cyan = colors.cyan,
-    blue = colors.lightBlue,
-    purple = colors.purple
+    purple = colors.purple,
+    blue = colors.lightBlue
 }
 
-local source = nil
-local lastError = nil
-local renderedRows = {}
+local function fit(value, limit)
+    value = tostring(value or "")
+    if #value <= limit then
+        return value
+    end
+    if limit <= 3 then
+        return value:sub(1, limit)
+    end
+    return value:sub(1, limit - 3) .. "..."
+end
 
-monitor.setBackgroundColor(C.background)
-monitor.setTextColor(C.white)
-monitor.clear()
-
-local function formatNumber(value)
-    local result = tostring(math.floor(math.abs(value)))
-
+local function number(value)
+    value = math.floor(math.max(0, tonumber(value) or 0))
+    local result = tostring(value)
     while true do
         local formatted, count = result:gsub("^(%d+)(%d%d%d)", "%1,%2")
         result = formatted
         if count == 0 then
-            break
+            return result
         end
     end
-
-    return result
 end
 
-local function formatDuration(seconds)
-    seconds = math.max(0, math.floor(seconds))
-
-    local days = math.floor(seconds / 86400)
-    local hours = math.floor((seconds % 86400) / 3600)
-    local minutes = math.floor((seconds % 3600) / 60)
-
-    if days > 0 then
-        return days .. "d " .. hours .. "h"
-    elseif hours > 0 then
-        return hours .. "h " .. minutes .. "m"
-    elseif minutes > 0 then
-        return minutes .. "m"
+local function addLine(lines, value, colour)
+    if #lines < height then
+        lines[#lines + 1] = {
+            text = fit(value, width),
+            colour = colour or C.text
+        }
     end
-
-    return seconds .. "s"
 end
 
-local function fit(value, maxLength)
-    value = tostring(value or "")
-    if #value <= maxLength then
-        return value
-    end
-
-    if maxLength <= 3 then
-        return value:sub(1, maxLength)
-    end
-
-    return value:sub(1, maxLength - 3) .. "..."
+local function addBar(lines, percent, colour)
+    local barWidth = math.max(1, width - 4)
+    local filled = math.floor(barWidth * math.max(0, math.min(100, percent)) / 100)
+    local bar = "[" .. string.rep("#", filled) .. string.rep("-", barWidth - filled) .. "]"
+    addLine(lines, bar, colour)
 end
 
-local function newCanvas()
-    local canvas = {
-        chars = {},
-        foreground = {},
-        background = {}
-    }
-
-    local fg = colors.toBlit(C.white)
-    local bg = colors.toBlit(C.background)
-
+local function render(lines)
     for y = 1, height do
-        canvas.chars[y] = {}
-        canvas.foreground[y] = {}
-        canvas.background[y] = {}
+        local entry = lines[y] or { text = "", colour = C.text }
+        local value = fit(entry.text, width)
+        local key = value .. ":" .. tostring(entry.colour)
 
-        for x = 1, width do
-            canvas.chars[y][x] = " "
-            canvas.foreground[y][x] = fg
-            canvas.background[y][x] = bg
-        end
-    end
-
-    return canvas
-end
-
-local function writeAt(canvas, x, y, value, foreground, background)
-    if y < 1 or y > height or x > width then
-        return
-    end
-
-    value = tostring(value or "")
-    local fg = colors.toBlit(foreground or C.white)
-    local bg = colors.toBlit(background or C.background)
-
-    for index = 1, #value do
-        local position = x + index - 1
-        if position >= 1 and position <= width then
-            canvas.chars[y][position] = value:sub(index, index)
-            canvas.foreground[y][position] = fg
-            canvas.background[y][position] = bg
-        end
-    end
-end
-
-local function center(canvas, y, value, colour)
-    value = tostring(value)
-    writeAt(canvas, math.floor((width - #value) / 2) + 1, y, value, colour)
-end
-
-local function right(canvas, y, x, value, colour)
-    value = tostring(value)
-    writeAt(canvas, x - #value + 1, y, value, colour)
-end
-
-local function rule(canvas, y, char, colour)
-    writeAt(canvas, 1, y, string.rep(char, width), colour)
-end
-
-local function render(canvas)
-    for y = 1, height do
-        local chars = table.concat(canvas.chars[y])
-        local fg = table.concat(canvas.foreground[y])
-        local bg = table.concat(canvas.background[y])
-        local key = chars .. fg .. bg
-
-        if renderedRows[y] ~= key then
+        if previousRows[y] ~= key then
             monitor.setCursorPos(1, y)
-            monitor.blit(chars, fg, bg)
-            renderedRows[y] = key
+            monitor.setTextColor(entry.colour)
+            monitor.setBackgroundColor(C.background)
+            monitor.write(value .. string.rep(" ", math.max(0, width - #value)))
+            previousRows[y] = key
         end
     end
 end
 
-local function drawDashboard()
-    local canvas = newCanvas()
-    local altar = source and source.altar or nil
+local function dashboard()
+    local lines = {}
+    local altar = source and source.altar
     local online = altar ~= nil
         and os.epoch("utc") - source.seen <= CONFIG.transmitterTimeout * 1000
 
-    local function fittedCenter(y, value, colour)
-        center(canvas, y, fit(value, math.max(1, width - 2)), colour)
-    end
-
-    local function drawBar(y, percent, colour)
-        local barWidth = math.max(1, width - 6)
-        local filled = math.floor(barWidth * percent / 100)
-        filled = math.max(0, math.min(barWidth, filled))
-        local x = math.max(1, math.floor((width - barWidth - 2) / 2) + 1)
-
-        writeAt(canvas, x, y, "[", C.border)
-        writeAt(canvas, x + 1, y, string.rep("#", filled), colour)
-        writeAt(canvas, x + filled + 1, y, string.rep("-", barWidth - filled), C.muted)
-        writeAt(canvas, x + barWidth + 1, y, "]", C.border)
-    end
-
-    writeAt(canvas, 1, 1, "+" .. string.rep("=", math.max(0, width - 2)) .. "+", C.border)
+    addLine(lines, "POTATOCORE / HEMOCORE", C.red)
+    addLine(lines, string.rep("=", width), C.red)
 
     if not online then
-        fittedCenter(2, "POTATOCORE // HEMOCORE", C.red)
-        rule(canvas, 4, "-", C.border)
-        fittedCenter(6, "ALTAR LINK OFFLINE", C.orange)
-        fittedCenter(8, "CHECK TRANSMITTER", C.muted)
-
+        addLine(lines, "ALTAR LINK OFFLINE", C.orange)
+        addLine(lines, "Check altar PC", C.muted)
         if lastError then
-            fittedCenter(10, lastError, C.orange)
+            addLine(lines, fit(lastError, width), C.orange)
         end
-
-        if height >= 12 then
-            fittedCenter(height - 1, "WAITING FOR ALTAR", C.muted)
-        end
-
-        writeAt(canvas, 1, height, "+" .. string.rep("=", math.max(0, width - 2)) .. "+", C.border)
-        render(canvas)
+        addLine(lines, "Waiting for telemetry", C.muted)
+        render(lines)
         return
     end
 
-    local stored = math.max(0, altar.storedLP or 0)
-    local capacity = math.max(0, altar.capacity or 0)
-    local percentage = capacity > 0 and stored / capacity * 100 or 0
-    percentage = math.max(0, math.min(100, percentage))
+    local stored = math.max(0, tonumber(altar.storedLP) or 0)
+    local capacity = math.max(0, tonumber(altar.capacity) or 0)
+    local tankPercent = capacity > 0 and stored / capacity * 100 or 0
+    tankPercent = math.max(0, math.min(100, tankPercent))
 
-    local required = math.max(0, (altar.liquidRequired or 0) * math.max(0, altar.inputCount or 0))
-    local progress = math.max(0, altar.progress or 0)
-    local progressPercent = required > 0 and math.min(100, progress / required * 100) or 0
+    local progress = math.max(0, tonumber(altar.progress) or 0)
+    local required = math.max(0, tonumber(altar.liquidRequired) or 0)
+    local progressPercent = required > 0 and progress / required * 100 or 0
+    progressPercent = math.max(0, math.min(100, progressPercent))
 
     local status = altar.active and "ACTIVE" or "STANDBY"
     local statusColour = altar.active and C.green or C.orange
-
     if altar.progressDecaying then
         status = "DECAYING"
         statusColour = C.orange
-    elseif altar.active and altar.progress > 0 then
+    elseif altar.active and progress > 0 then
         status = "CRAFTING"
         statusColour = C.cyan
     end
 
-    -- Grandpa Mode layout: large font, short labels, essential information first.
-    if ultraCompactLayout then
-        fittedCenter(2, "POTATOCORE / HEMOCORE", C.red)
-        fittedCenter(3, "TIER " .. tostring(altar.tier or "?") .. " // " .. status, statusColour)
-        rule(canvas, 4, "=", C.border)
+    addLine(lines, "TIER " .. tostring(altar.tier or "?") .. " / " .. status, statusColour)
+    addLine(lines, string.rep("-", width), C.muted)
+    addLine(lines, "LP TANK", C.purple)
+    addLine(lines, number(stored) .. " / " .. number(capacity) .. " LP", C.text)
+    addBar(lines, tankPercent, C.red)
+    addLine(lines, string.format("%.1f%% STORED", tankPercent), C.text)
+    addLine(lines, string.rep("-", width), C.muted)
+    addLine(lines, "RECIPE PROGRESS", C.cyan)
 
-        fittedCenter(5, "LP TANK", C.purple)
-        fittedCenter(6, formatNumber(stored) .. "/" .. formatNumber(capacity), C.white)
-        drawBar(7, percentage, C.red)
-        fittedCenter(8, string.format("%.1f%% STORED", percentage), C.white)
+    local item = tostring(altar.inputItem or "Empty")
+    local count = tonumber(altar.inputCount) or 0
+    addLine(lines, count > 0 and (item .. " x" .. count) or "No item in altar", C.text)
+    addLine(lines, number(progress) .. " / " .. number(required) .. " LP", C.text)
+    addBar(lines, progressPercent, altar.progressDecaying and C.orange or C.cyan)
 
-        rule(canvas, 9, "-", C.border)
-        fittedCenter(10, "RECIPE PROGRESS", C.cyan)
-
-        local itemText = altar.inputCount > 0
-            and (altar.inputItem .. " x" .. altar.inputCount)
-            or "NO INPUT"
-        fittedCenter(11, "IN: " .. itemText, C.white)
-        fittedCenter(
-            12,
-            formatNumber(progress) .. "/" .. formatNumber(required) .. " LP",
-            C.white
-        )
-        drawBar(13, progressPercent, altar.progressDecaying and C.orange or C.cyan)
-
-        local progressLabel = altar.progressDecaying and "!! DECAYING !!"
-            or string.format("%.1f%% COMPLETE", progressPercent)
-        fittedCenter(14, progressLabel, altar.progressDecaying and C.orange or C.cyan)
-
-        rule(canvas, 15, "-", C.border)
-        fittedCenter(16, "ALTAR SYSTEMS", C.purple)
-        fittedCenter(
-            17,
-            "USE " .. tostring(altar.consumptionRate) .. " / DRAIN " .. tostring(altar.drainRate),
-            C.orange
-        )
-        fittedCenter(
-            18,
-            "BUFFER " .. formatNumber(altar.totalCharge) .. "/" .. formatNumber(altar.maxCharge),
-            C.blue
-        )
-
-        if height >= 20 then
-            fittedCenter(19, "NODE " .. tostring(source.computer) .. " // LINK OK", C.green)
-        end
-        if height >= 21 then
-            fittedCenter(height - 1, "BLOOD MAGIC ONLINE", C.red)
-        end
-
-        writeAt(canvas, 1, height, "+" .. string.rep("=", math.max(0, width - 2)) .. "+", C.border)
-        render(canvas)
-        return
+    if altar.progressDecaying then
+        addLine(lines, "!! PROGRESS DECAYING !!", C.orange)
+    else
+        addLine(lines, string.format("%.1f%% COMPLETE", progressPercent), C.cyan)
     end
 
-    -- Compact / full layouts retain the same visual hierarchy.
-    fittedCenter(2, "POTATOCORE // HEMOCORE", C.red)
-    fittedCenter(3, "BLOOD ALTAR // TIER " .. tostring(altar.tier or "?"), C.purple)
-    rule(canvas, 4, "=", C.border)
+    addLine(lines, "USE " .. tostring(altar.consumptionRate or 0)
+        .. " / DRAIN " .. tostring(altar.drainRate or 0) .. " LP/T", C.orange)
+    addLine(lines, "BUFFER " .. number(altar.totalCharge)
+        .. "/" .. number(altar.maxCharge), C.blue)
+    addLine(lines, "NODE " .. tostring(source.computer) .. " / LINK OK", C.green)
 
-    writeAt(canvas, 3, 5, "STATUS: " .. status, statusColour)
-    right(canvas, 5, width - 2, "NODE " .. tostring(source.computer), C.green)
-
-    fittedCenter(7, "LP TANK", C.purple)
-    fittedCenter(
-        8,
-        formatNumber(stored) .. " / " .. formatNumber(capacity) .. " LP",
-        C.white
-    )
-    drawBar(9, percentage, C.red)
-    fittedCenter(10, string.format("%.1f%% STORED", percentage), C.white)
-
-    rule(canvas, 12, "-", C.border)
-    fittedCenter(13, "RECIPE PROGRESS", C.cyan)
-
-    local itemText = altar.inputCount > 0
-        and (altar.inputItem .. " x" .. altar.inputCount)
-        or "No item in altar"
-    writeAt(canvas, 3, 15, "INPUT: " .. fit(itemText, width - 10), C.white)
-
-    writeAt(
-        canvas,
-        3,
-        17,
-        "PROGRESS: " .. formatNumber(progress) .. " / " .. formatNumber(required) .. " LP",
-        C.white
-    )
-    drawBar(18, progressPercent, altar.progressDecaying and C.orange or C.cyan)
-    fittedCenter(
-        19,
-        altar.progressDecaying and "!! PROGRESS DECAYING !!"
-            or string.format("%.1f%% COMPLETE", progressPercent),
-        altar.progressDecaying and C.orange or C.cyan
-    )
-
-    rule(canvas, 21, "-", C.border)
-    fittedCenter(22, "ALTAR SYSTEMS", C.purple)
-    writeAt(canvas, 3, 24, "USE: " .. tostring(altar.consumptionRate) .. " LP/TICK", C.orange)
-    writeAt(canvas, 3, 25, "DRAIN: " .. tostring(altar.drainRate) .. " LP/TICK", C.orange)
-    writeAt(
-        canvas,
-        3,
-        27,
-        "BUFFER: " .. formatNumber(altar.totalCharge) .. "/" .. formatNumber(altar.maxCharge),
-        C.blue
-    )
-
-    right(canvas, height - 1, width - 2, "SIGNAL ONLINE", C.green)
-    writeAt(canvas, 3, height - 1, "POTATOCORE // BLOOD MAGIC", C.red)
-    writeAt(canvas, 1, height, "+" .. string.rep("=", math.max(0, width - 2)) .. "+", C.border)
-
-    render(canvas)
+    render(lines)
 end
 
 print("POTATOCORE // BLOOD ALTAR MONITOR")
-print("Monitor: " .. CONFIG.monitorSide:upper())
-print("Ender Modem: " .. CONFIG.modemSide:upper())
+print("Monitor: BACK (" .. width .. "x" .. height .. ")")
+print("Ender Modem: LEFT")
+print("Text scale: " .. (scaleSupported and tostring(CONFIG.textScale) or "current"))
 print("Protocol: " .. CONFIG.protocol)
-print("Waiting for altar transmitter...")
 
-drawDashboard()
+monitor.setBackgroundColor(C.background)
+monitor.setTextColor(C.text)
+monitor.clear()
+dashboard()
 
 while true do
     local senderId, message = rednet.receive(CONFIG.protocol, CONFIG.receiveInterval)
 
     if senderId and type(message) == "table" then
         if message.kind == "blood_altar" and type(message.altar) == "table" then
-            local incomingAltar = message.altar
-            local previousAltar = source and source.altar or nil
+            local incoming = message.altar
+            local recipeKey = tostring(incoming.inputItem) .. ":" .. tostring(incoming.inputCount)
+                .. ":" .. tostring(incoming.liquidRequired)
 
-            local sameRecipe = previousAltar ~= nil
-                and previousAltar.inputItem == incomingAltar.inputItem
-                and previousAltar.inputCount == incomingAltar.inputCount
-                and previousAltar.liquidRequired == incomingAltar.liquidRequired
-
-            incomingAltar.progressDecaying = false
-
-            if sameRecipe and previousAltar.active and incomingAltar.active then
-                if (incomingAltar.progress or 0) < (previousAltar.progress or 0) then
-                    incomingAltar.progressDecaying = true
-                elseif (incomingAltar.progress or 0) == (previousAltar.progress or 0) then
-                    incomingAltar.progressDecaying = previousAltar.progressDecaying == true
-                end
+            incoming.progressDecaying = false
+            if previousRecipe == recipeKey and previousProgress ~= nil
+                and incoming.active and (tonumber(incoming.progress) or 0) < previousProgress then
+                incoming.progressDecaying = true
             end
 
+            previousRecipe = recipeKey
+            previousProgress = tonumber(incoming.progress) or 0
             source = {
                 computer = senderId,
-                altar = incomingAltar,
+                altar = incoming,
                 seen = os.epoch("utc")
             }
             lastError = nil
@@ -397,9 +232,11 @@ while true do
             end
         end
 
-        drawDashboard()
+        dashboard()
     elseif source and os.epoch("utc") - source.seen > CONFIG.transmitterTimeout * 1000 then
         source = nil
-        drawDashboard()
+        previousProgress = nil
+        previousRecipe = nil
+        dashboard()
     end
 end
