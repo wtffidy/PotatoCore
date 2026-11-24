@@ -2,34 +2,71 @@
 -- POTATOCORE // BLOOD ALTAR TRANSMITTER
 -- Project Infinity 0.1 | Blood Magic + Advanced Peripherals
 --
--- Altar PC:
+-- Altar computer hardware:
+--   Block Reader: TOP
 --   Ender Modem: BOTTOM
---   Block Reader: above the altar, connected to this PC through
---                 the peripheral network / wired modem network.
---   Reader face: aimed at the Blood Altar.
 --
--- Reads altar telemetry only. Does not modify the altar.
+-- The Block Reader must face the Blood Altar.
+-- This script only reads altar data and broadcasts it.
 -- ============================================================
 
 local CONFIG = {
+    readerSide = "top",
     modemSide = "bottom",
     protocol = "potatocore_blood_altar_v1",
     updateInterval = 0.5,
     altarBlock = "bloodmagic:altar"
 }
 
-local modemType = peripheral.getType(CONFIG.modemSide)
-if modemType ~= "modem" then
-    error("Ender Modem not found on " .. CONFIG.modemSide:upper() .. "!")
+local function hasType(name, expected)
+    local types = { peripheral.getType(name) }
+    for _, peripheralType in ipairs(types) do
+        if peripheralType == expected then
+            return true
+        end
+    end
+    return false
 end
 
-local reader, readerName = peripheral.find("blockReader")
-if not reader then
-    print("Connected peripherals:")
+local function listPeripherals()
+    local result = {}
     for _, name in ipairs(peripheral.getNames()) do
-        print(" - " .. name .. " (" .. tostring(peripheral.getType(name)) .. ")")
+        local types = { peripheral.getType(name) }
+        result[#result + 1] = name .. " [" .. table.concat(types, ", ") .. "]"
     end
-    error("Block Reader not found. Connect the reader to this PC with a wired modem network.")
+    return #result > 0 and table.concat(result, ", ") or "none"
+end
+
+if not hasType(CONFIG.modemSide, "modem") then
+    error("No modem on BOTTOM. Detected: " .. listPeripherals())
+end
+
+-- Prefer the directly attached top-side reader, then search wired peripherals.
+local readerName
+if peripheral.isPresent(CONFIG.readerSide) and hasType(CONFIG.readerSide, "blockReader") then
+    readerName = CONFIG.readerSide
+elseif peripheral.isPresent(CONFIG.readerSide) and hasType(CONFIG.readerSide, "block_reader") then
+    readerName = CONFIG.readerSide
+else
+    for _, name in ipairs(peripheral.getNames()) do
+        if hasType(name, "blockReader") or hasType(name, "block_reader") then
+            readerName = name
+            break
+        end
+    end
+end
+
+if not readerName then
+    error("Block Reader not detected. Expected it on TOP or on the wired network. Detected: " .. listPeripherals())
+end
+
+local reader = peripheral.wrap(readerName)
+if not reader then
+    error("Could not wrap Block Reader '" .. readerName .. "'. Detected: " .. listPeripherals())
+end
+
+if type(reader.getBlockName) ~= "function" or type(reader.getBlockData) ~= "function" then
+    error("Peripheral '" .. readerName .. "' is missing getBlockName/getBlockData. Detected: " .. listPeripherals())
 end
 
 rednet.open(CONFIG.modemSide)
@@ -53,17 +90,18 @@ end
 local function readAltar()
     local blockName = reader.getBlockName()
     if blockName ~= CONFIG.altarBlock then
-        return nil, "Reader sees " .. tostring(blockName) .. ", expected " .. CONFIG.altarBlock
+        return nil, "Block Reader '" .. readerName .. "' sees " .. tostring(blockName)
+            .. "; expected " .. CONFIG.altarBlock .. ". Check which way the reader faces."
     end
 
     local blockData = reader.getBlockData()
     if type(blockData) ~= "table" then
-        return nil, "Block Reader returned no block data"
+        return nil, "Block Reader returned no tile data for " .. CONFIG.altarBlock
     end
 
     local altar = blockData.bloodAltar
     if type(altar) ~= "table" then
-        return nil, "bloodAltar data missing from block NBT"
+        return nil, "bloodAltar data missing. Run blood_probe.lua to inspect the reader data."
     end
 
     local item, itemCount = readInputItem(blockData)
@@ -91,8 +129,8 @@ print("========================================")
 print(" POTATOCORE // BLOOD ALTAR TRANSMITTER")
 print("========================================")
 print("Computer ID : " .. os.getComputerID())
-print("Modem       : " .. CONFIG.modemSide:upper())
-print("Block Reader: " .. tostring(readerName))
+print("Block Reader: " .. readerName)
+print("Ender Modem : " .. CONFIG.modemSide:upper())
 print("Protocol    : " .. CONFIG.protocol)
 print("----------------------------------------")
 
