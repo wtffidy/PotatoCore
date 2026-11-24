@@ -15,7 +15,7 @@ local CONFIG = {
     monitorSide = "top",
     protocol = "potatocore_blood_altar_v1",
     transmitterTimeout = 6,
-    textScale = 1.0,
+    textScale = 1.5,
     receiveInterval = 0.5
 }
 
@@ -33,16 +33,16 @@ monitor.setTextScale(CONFIG.textScale)
 
 local width, height = monitor.getSize()
 
--- Keep the font large on the 6x6 display. Fall back only if the
--- monitor cannot fit even the compact layout at scale 1.0.
-if width < 32 or height < 22 then
-    CONFIG.textScale = 0.8
+-- Grandpa Mode: use a large font on 6x6 monitor walls.
+-- Fall back one step only when the compact layout would not fit.
+if width < 26 or height < 20 then
+    CONFIG.textScale = 1.0
     monitor.setTextScale(CONFIG.textScale)
     width, height = monitor.getSize()
 end
 
-if width < 28 or height < 20 then
-    CONFIG.textScale = 0.7
+if width < 22 or height < 18 then
+    CONFIG.textScale = 0.8
     monitor.setTextScale(CONFIG.textScale)
     width, height = monitor.getSize()
 end
