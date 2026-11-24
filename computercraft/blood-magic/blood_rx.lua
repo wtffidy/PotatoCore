@@ -183,131 +183,36 @@ local function drawDashboard()
     local online = altar ~= nil
         and os.epoch("utc") - source.seen <= CONFIG.transmitterTimeout * 1000
 
-    writeAt(canvas, 1, 1, "+" .. string.rep("=", width - 2) .. "+", C.border)
-    center(canvas, 2, "POTATOCORE // BLOOD ALTAR CORE", C.red)
-    center(canvas, 3, "LIFE ESSENCE MONITORING SYSTEM", C.purple)
-    rule(canvas, 4, "=", C.border)
+    local function fittedCenter(y, value, colour)
+        center(canvas, y, fit(value, math.max(1, width - 2)), colour)
+    end
+
+    local function drawBar(y, percent, colour)
+        local barWidth = math.max(1, width - 6)
+        local filled = math.floor(barWidth * percent / 100)
+        filled = math.max(0, math.min(barWidth, filled))
+        local x = math.max(1, math.floor((width - barWidth - 2) / 2) + 1)
+
+        writeAt(canvas, x, y, "[", C.border)
+        writeAt(canvas, x + 1, y, string.rep("#", filled), colour)
+        writeAt(canvas, x + filled + 1, y, string.rep("-", barWidth - filled), C.muted)
+        writeAt(canvas, x + barWidth + 1, y, "]", C.border)
+    end
+
+    writeAt(canvas, 1, 1, "+" .. string.rep("=", math.max(0, width - 2)) .. "+", C.border)
 
     if not online then
-        if compactLayout then
-            center(canvas, 2, "BLOOD ALTAR CORE", C.red)
-            center(canvas, 5, "ALTAR LINK OFFLINE", C.orange)
-            center(canvas, 7, "CHECK ALTAR TRANSMITTER", C.muted)
-            if lastError then
-                center(canvas, 9, fit(lastError, width - 4), C.orange)
-            end
-        else
-            center(canvas, 7, "ALTAR LINK OFFLINE", C.orange)
-            center(canvas, 9, "CHECK THE ALTAR TRANSMITTER", C.muted)
-            if lastError then
-                center(canvas, 11, fit(lastError, width - 4), C.orange)
-            end
-        end
-
-        writeAt(canvas, 1, 1, "+" .. string.rep("=", width - 2) .. "+", C.border)
-        writeAt(canvas, 1, height, "+" .. string.rep("=", width - 2) .. "+", C.border)
-        render(canvas)
-        return
-    end
-
-    local stored = altar.storedLP or 0
-    local capacity = math.max(0, altar.capacity or 0)
-    local percentage = capacity > 0 and stored / capacity * 100 or 0
-    percentage = math.max(0, math.min(100, percentage))
-
-    local status = altar.active and "ACTIVE" or "IDLE"
-    local statusColour = altar.active and C.green or C.orange
-
-    if altar.active and altar.progress > 0 then
-        status = "CRAFTING"
-        statusColour = C.cyan
-    elseif not altar.active then
-        status = "STANDBY"
-        statusColour = C.orange
-    end
-
-    if ultraCompactLayout then
-        local innerWidth = math.max(1, width - 2)
-        local function smallCenter(y, value, colour)
-            center(canvas, y, fit(value, innerWidth), colour)
-        end
-
-        writeAt(canvas, 1, 1, "+" .. string.rep("=", math.max(0, width - 2)) .. "+", C.border)
-        smallCenter(2, "BLOOD ALTAR", C.red)
-        smallCenter(3, "TIER " .. tostring(altar.tier or "?") .. " / " .. status, statusColour)
+        fittedCenter(2, "POTATOCORE // HEMOCORE", C.red)
         rule(canvas, 4, "-", C.border)
+        fittedCenter(6, "ALTAR LINK OFFLINE", C.orange)
+        fittedCenter(8, "CHECK TRANSMITTER", C.muted)
 
-        smallCenter(5, "LIFE ESSENCE", C.purple)
-        smallCenter(6, formatNumber(stored) .. "/" .. formatNumber(capacity) .. " LP", C.white)
-
-        local smallBarWidth = math.max(1, width - 4)
-        local smallFilled = math.floor(smallBarWidth * percentage / 100)
-        smallFilled = math.max(0, math.min(smallBarWidth, smallFilled))
-        local smallBarX = math.max(1, math.floor((width - smallBarWidth - 2) / 2) + 1)
-
-        writeAt(canvas, smallBarX, 7, "[", C.border)
-        writeAt(canvas, smallBarX + 1, 7, string.rep("#", smallFilled), C.red)
-        writeAt(
-            canvas,
-            smallBarX + smallFilled + 1,
-            7,
-            string.rep("-", smallBarWidth - smallFilled),
-            C.muted
-        )
-        writeAt(canvas, smallBarX + smallBarWidth + 1, 7, "]", C.border)
-        smallCenter(8, string.format("%.1f%% STORED", percentage), C.white)
-
-        rule(canvas, 9, "-", C.border)
-        smallCenter(10, "CRAFTING", C.cyan)
-
-        local itemText = altar.inputCount > 0
-            and (altar.inputItem .. " x" .. altar.inputCount)
-            or "No item"
-        smallCenter(11, "ITEM: " .. itemText, C.white)
-
-        local required = math.max(0, (altar.liquidRequired or 0) * math.max(1, altar.inputCount or 0))
-        local progress = math.max(0, altar.progress or 0)
-        local progressPercent = required > 0 and math.min(100, progress / required * 100) or 0
-
-        smallCenter(
-            12,
-            formatNumber(progress) .. "/" .. formatNumber(required) .. " LP",
-            C.white
-        )
-
-        local progressFilled = math.floor(smallBarWidth * progressPercent / 100)
-        progressFilled = math.max(0, math.min(smallBarWidth, progressFilled))
-        writeAt(canvas, smallBarX, 13, "[", C.border)
-        writeAt(canvas, smallBarX + 1, 13, string.rep("#", progressFilled), C.cyan)
-        writeAt(
-            canvas,
-            smallBarX + progressFilled + 1,
-            13,
-            string.rep("-", smallBarWidth - progressFilled),
-            C.muted
-        )
-        writeAt(canvas, smallBarX + smallBarWidth + 1, 13, "]", C.border)
-        smallCenter(14, string.format("%.1f%% COMPLETE", progressPercent), C.cyan)
-
-        if height >= 18 then
-            rule(canvas, 15, "-", C.border)
-            smallCenter(
-                16,
-                "USE " .. tostring(altar.consumptionRate) .. " / DRAIN " .. tostring(altar.drainRate),
-                C.orange
-            )
+        if lastError then
+            fittedCenter(10, lastError, C.orange)
         end
 
-        if height >= 20 then
-            smallCenter(
-                17,
-                "BUFFER " .. formatNumber(altar.totalCharge) .. "/" .. formatNumber(altar.maxCharge),
-                C.blue
-            )
-        end
-
-        if height >= 21 then
-            smallCenter(height - 1, "POTATOCORE // BLOOD MAGIC", C.red)
+        if height >= 12 then
+            fittedCenter(height - 1, "WAITING FOR ALTAR", C.muted)
         end
 
         writeAt(canvas, 1, height, "+" .. string.rep("=", math.max(0, width - 2)) .. "+", C.border)
@@ -315,160 +220,135 @@ local function drawDashboard()
         return
     end
 
-    if compactLayout then
-        writeAt(canvas, 1, 1, "+" .. string.rep("=", width - 2) .. "+", C.border)
-        center(canvas, 2, "BLOOD ALTAR CORE", C.red)
-        center(canvas, 3, "TIER " .. tostring(altar.tier or "UNKNOWN") .. "  |  " .. status, statusColour)
-        rule(canvas, 4, "-", C.border)
+    local stored = math.max(0, altar.storedLP or 0)
+    local capacity = math.max(0, altar.capacity or 0)
+    local percentage = capacity > 0 and stored / capacity * 100 or 0
+    percentage = math.max(0, math.min(100, percentage))
 
-        center(canvas, 5, "LIFE ESSENCE", C.purple)
-        center(canvas, 6, formatNumber(stored) .. " / " .. formatNumber(capacity) .. " LP", C.white)
+    local required = math.max(0, (altar.liquidRequired or 0) * math.max(0, altar.inputCount or 0))
+    local progress = math.max(0, altar.progress or 0)
+    local progressPercent = required > 0 and math.min(100, progress / required * 100) or 0
 
-        local compactBarWidth = math.max(6, width - 6)
-        local compactFilled = math.floor(compactBarWidth * percentage / 100)
-        compactFilled = math.max(0, math.min(compactBarWidth, compactFilled))
-        local compactBarX = math.floor((width - compactBarWidth - 2) / 2) + 1
+    local status = altar.active and "ACTIVE" or "STANDBY"
+    local statusColour = altar.active and C.green or C.orange
 
-        writeAt(canvas, compactBarX, 7, "[", C.border)
-        writeAt(canvas, compactBarX + 1, 7, string.rep("#", compactFilled), C.red)
-        writeAt(canvas, compactBarX + compactFilled + 1, 7, string.rep("-", compactBarWidth - compactFilled), C.muted)
-        writeAt(canvas, compactBarX + compactBarWidth + 1, 7, "]", C.border)
-        center(canvas, 8, string.format("%.1f%% STORED", percentage), C.white)
+    if altar.progressDecaying then
+        status = "DECAYING"
+        statusColour = C.orange
+    elseif altar.active and altar.progress > 0 then
+        status = "CRAFTING"
+        statusColour = C.cyan
+    end
+
+    -- Grandpa Mode layout: large font, short labels, essential information first.
+    if ultraCompactLayout then
+        fittedCenter(2, "POTATOCORE / HEMOCORE", C.red)
+        fittedCenter(3, "TIER " .. tostring(altar.tier or "?") .. " // " .. status, statusColour)
+        rule(canvas, 4, "=", C.border)
+
+        fittedCenter(5, "LP TANK", C.purple)
+        fittedCenter(6, formatNumber(stored) .. "/" .. formatNumber(capacity), C.white)
+        drawBar(7, percentage, C.red)
+        fittedCenter(8, string.format("%.1f%% STORED", percentage), C.white)
 
         rule(canvas, 9, "-", C.border)
-        center(canvas, 10, "CRAFTING", C.cyan)
+        fittedCenter(10, "RECIPE PROGRESS", C.cyan)
 
         local itemText = altar.inputCount > 0
             and (altar.inputItem .. " x" .. altar.inputCount)
-            or "No item in altar"
-        writeAt(canvas, 2, 11, "ITEM: " .. fit(itemText, width - 9), C.white)
-
-        local required = math.max(0, (altar.liquidRequired or 0) * math.max(1, altar.inputCount or 0))
-        local progress = math.max(0, altar.progress or 0)
-        local progressPercent = required > 0 and math.min(100, progress / required * 100) or 0
-        writeAt(
-            canvas,
-            2,
+            or "NO INPUT"
+        fittedCenter(11, "IN: " .. itemText, C.white)
+        fittedCenter(
             12,
-            "PROGRESS " .. formatNumber(progress) .. "/" .. formatNumber(required) .. " LP",
+            formatNumber(progress) .. "/" .. formatNumber(required) .. " LP",
             C.white
         )
+        drawBar(13, progressPercent, altar.progressDecaying and C.orange or C.cyan)
 
-        local progressFilled = math.floor(compactBarWidth * progressPercent / 100)
-        progressFilled = math.max(0, math.min(compactBarWidth, progressFilled))
-        writeAt(canvas, compactBarX, 13, "[", C.border)
-        writeAt(canvas, compactBarX + 1, 13, string.rep("#", progressFilled), C.cyan)
-        writeAt(canvas, compactBarX + progressFilled + 1, 13, string.rep("-", compactBarWidth - progressFilled), C.muted)
-        writeAt(canvas, compactBarX + compactBarWidth + 1, 13, "]", C.border)
-        center(canvas, 14, string.format("%.1f%% COMPLETE", progressPercent), C.cyan)
+        local progressLabel = altar.progressDecaying and "!! DECAYING !!"
+            or string.format("%.1f%% COMPLETE", progressPercent)
+        fittedCenter(14, progressLabel, altar.progressDecaying and C.orange or C.cyan)
 
         rule(canvas, 15, "-", C.border)
-        center(canvas, 16, "ALTAR TELEMETRY", C.purple)
-        writeAt(canvas, 2, 17, "USE: " .. tostring(altar.consumptionRate) .. " LP/TICK", C.orange)
-        writeAt(canvas, 2, 18, "DRAIN: " .. tostring(altar.drainRate) .. " LP/TICK", C.orange)
-        writeAt(
-            canvas,
-            2,
-            19,
-            "BUFFER: " .. formatNumber(altar.totalCharge) .. "/" .. formatNumber(altar.maxCharge),
+        fittedCenter(16, "ALTAR SYSTEMS", C.purple)
+        fittedCenter(
+            17,
+            "USE " .. tostring(altar.consumptionRate) .. " / DRAIN " .. tostring(altar.drainRate),
+            C.orange
+        )
+        fittedCenter(
+            18,
+            "BUFFER " .. formatNumber(altar.totalCharge) .. "/" .. formatNumber(altar.maxCharge),
             C.blue
         )
+
+        if height >= 20 then
+            fittedCenter(19, "NODE " .. tostring(source.computer) .. " // LINK OK", C.green)
+        end
         if height >= 21 then
-            writeAt(canvas, 2, 20, "CAP: " .. formatNumber(altar.bufferCapacity), C.blue)
+            fittedCenter(height - 1, "BLOOD MAGIC ONLINE", C.red)
         end
 
-        writeAt(canvas, 1, height - 1, fit("POTATOCORE // BLOOD MAGIC", width - 2), C.red)
-        writeAt(canvas, 1, height, "+" .. string.rep("=", width - 2) .. "+", C.border)
+        writeAt(canvas, 1, height, "+" .. string.rep("=", math.max(0, width - 2)) .. "+", C.border)
         render(canvas)
         return
     end
 
-    writeAt(canvas, 3, 5, "[ALTAR] " .. status, statusColour)
-    right(canvas, 5, width - 2, "[LINK] ONLINE // PC " .. source.computer, C.green)
+    -- Compact / full layouts retain the same visual hierarchy.
+    fittedCenter(2, "POTATOCORE // HEMOCORE", C.red)
+    fittedCenter(3, "BLOOD ALTAR // TIER " .. tostring(altar.tier or "?"), C.purple)
+    rule(canvas, 4, "=", C.border)
 
-    center(canvas, 7, "TIER " .. tostring(altar.tier or "UNKNOWN"), C.purple)
+    writeAt(canvas, 3, 5, "STATUS: " .. status, statusColour)
+    right(canvas, 5, width - 2, "NODE " .. tostring(source.computer), C.green)
 
-    local barWidth = math.max(10, width - 8)
-    local filled = math.floor(barWidth * percentage / 100)
-    filled = math.max(0, math.min(barWidth, filled))
-    local barX = math.floor((width - barWidth - 2) / 2) + 1
-
-    writeAt(canvas, barX, 9, "[", C.border)
-    writeAt(canvas, barX + 1, 9, string.rep("#", filled), C.red)
-    writeAt(canvas, barX + filled + 1, 9, string.rep("-", barWidth - filled), C.muted)
-    writeAt(canvas, barX + barWidth + 1, 9, "]", C.border)
-
-    center(
-        canvas,
-        10,
-        "LIFE ESSENCE  " .. formatNumber(stored) .. " / " .. formatNumber(capacity)
-            .. " LP  [" .. string.format("%.1f", percentage) .. "%]",
+    fittedCenter(7, "LP TANK", C.purple)
+    fittedCenter(
+        8,
+        formatNumber(stored) .. " / " .. formatNumber(capacity) .. " LP",
         C.white
     )
+    drawBar(9, percentage, C.red)
+    fittedCenter(10, string.format("%.1f%% STORED", percentage), C.white)
 
     rule(canvas, 12, "-", C.border)
-    center(canvas, 13, "CRAFTING OPERATIONS", C.cyan)
+    fittedCenter(13, "RECIPE PROGRESS", C.cyan)
 
     local itemText = altar.inputCount > 0
         and (altar.inputItem .. " x" .. altar.inputCount)
         or "No item in altar"
     writeAt(canvas, 3, 15, "INPUT: " .. fit(itemText, width - 10), C.white)
 
-    local required = math.max(0, (altar.liquidRequired or 0) * math.max(1, altar.inputCount or 0))
-    local progress = math.max(0, altar.progress or 0)
-    local progressPercent = required > 0 and math.min(100, progress / required * 100) or 0
-
     writeAt(
         canvas,
         3,
         17,
-        "PROGRESS: " .. formatNumber(progress) .. " / " .. formatNumber(required)
-            .. " LP  [" .. string.format("%.1f", progressPercent) .. "%]",
+        "PROGRESS: " .. formatNumber(progress) .. " / " .. formatNumber(required) .. " LP",
         C.white
     )
-
-    local progressWidth = math.max(10, width - 8)
-    local progressFilled = math.floor(progressWidth * progressPercent / 100)
-    local progressX = math.floor((width - progressWidth - 2) / 2) + 1
-
-    writeAt(canvas, progressX, 18, "[", C.border)
-    writeAt(canvas, progressX + 1, 18, string.rep("#", progressFilled), C.cyan)
-    writeAt(
-        canvas,
-        progressX + progressFilled + 1,
-        18,
-        string.rep("-", progressWidth - progressFilled),
-        C.muted
-    )
-    writeAt(canvas, progressX + progressWidth + 1, 18, "]", C.border)
-
-    rule(canvas, 20, "-", C.border)
-    center(canvas, 21, "ALTAR TELEMETRY", C.purple)
-
-    writeAt(canvas, 3, 23, "CONSUMPTION: " .. tostring(altar.consumptionRate) .. " LP/TICK", C.orange)
-    writeAt(canvas, 3, 24, "DRAIN RATE: " .. tostring(altar.drainRate) .. " LP/TICK", C.orange)
-
-    writeAt(
-        canvas,
-        3,
-        26,
-        "CHARGING BUFFER: " .. formatNumber(altar.totalCharge)
-            .. " / " .. formatNumber(altar.maxCharge),
-        C.blue
+    drawBar(18, progressPercent, altar.progressDecaying and C.orange or C.cyan)
+    fittedCenter(
+        19,
+        altar.progressDecaying and "!! PROGRESS DECAYING !!"
+            or string.format("%.1f%% COMPLETE", progressPercent),
+        altar.progressDecaying and C.orange or C.cyan
     )
 
+    rule(canvas, 21, "-", C.border)
+    fittedCenter(22, "ALTAR SYSTEMS", C.purple)
+    writeAt(canvas, 3, 24, "USE: " .. tostring(altar.consumptionRate) .. " LP/TICK", C.orange)
+    writeAt(canvas, 3, 25, "DRAIN: " .. tostring(altar.drainRate) .. " LP/TICK", C.orange)
     writeAt(
         canvas,
         3,
         27,
-        "BUFFER CAPACITY: " .. formatNumber(altar.bufferCapacity),
+        "BUFFER: " .. formatNumber(altar.totalCharge) .. "/" .. formatNumber(altar.maxCharge),
         C.blue
     )
 
-    local uptime = formatDuration((os.epoch("utc") - (source.seen or os.epoch("utc"))) / 1000)
     right(canvas, height - 1, width - 2, "SIGNAL ONLINE", C.green)
     writeAt(canvas, 3, height - 1, "POTATOCORE // BLOOD MAGIC", C.red)
-    writeAt(canvas, 1, height, "+" .. string.rep("=", width - 2) .. "+", C.border)
+    writeAt(canvas, 1, height, "+" .. string.rep("=", math.max(0, width - 2)) .. "+", C.border)
 
     render(canvas)
 end
@@ -486,9 +366,27 @@ while true do
 
     if senderId and type(message) == "table" then
         if message.kind == "blood_altar" and type(message.altar) == "table" then
+            local incomingAltar = message.altar
+            local previousAltar = source and source.altar or nil
+
+            local sameRecipe = previousAltar ~= nil
+                and previousAltar.inputItem == incomingAltar.inputItem
+                and previousAltar.inputCount == incomingAltar.inputCount
+                and previousAltar.liquidRequired == incomingAltar.liquidRequired
+
+            incomingAltar.progressDecaying = false
+
+            if sameRecipe and previousAltar.active and incomingAltar.active then
+                if (incomingAltar.progress or 0) < (previousAltar.progress or 0) then
+                    incomingAltar.progressDecaying = true
+                elseif (incomingAltar.progress or 0) == (previousAltar.progress or 0) then
+                    incomingAltar.progressDecaying = previousAltar.progressDecaying == true
+                end
+            end
+
             source = {
                 computer = senderId,
-                altar = message.altar,
+                altar = incomingAltar,
                 seen = os.epoch("utc")
             }
             lastError = nil
