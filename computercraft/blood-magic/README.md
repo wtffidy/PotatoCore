@@ -6,9 +6,10 @@ Remote Blood Magic altar telemetry for CC:Tweaked and Advanced Peripherals.
 
 ### Altar transmitter computer
 - Ender Modem attached to the computer's **bottom**.
-- Block Reader positioned above the Blood Altar and connected to the altar computer through the wired peripheral network.
+- Block Reader attached directly to the altar computer's **top** side.
 - The Block Reader must face the Blood Altar.
-- The transmitter discovers the Block Reader by peripheral type, so it does not depend on a fixed side.
+- Ender Modem attached to the computer's **bottom** side.
+- The transmitter checks TOP first and can also discover a Block Reader on the wired peripheral network.
 
 ### Remote monitor computer
 - 5-wide x 4-tall monitor connected to the computer's **back**.
