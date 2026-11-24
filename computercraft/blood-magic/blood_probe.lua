@@ -57,8 +57,8 @@ local function run()
         error("Block Reader sees no block. Put the Blood Altar directly in front of it.")
     end
 
-    if blockName ~= "bloodmagic:blood_altar" then
-        print("WARNING: Expected bloodmagic:blood_altar")
+    if blockName ~= "bloodmagic:altar" then
+        print("WARNING: Expected bloodmagic:altar")
     end
 
     local data = reader.getBlockData()
