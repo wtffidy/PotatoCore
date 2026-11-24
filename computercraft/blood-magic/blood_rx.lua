@@ -15,7 +15,7 @@ local CONFIG = {
     monitorSide = "top",
     protocol = "potatocore_blood_altar_v1",
     transmitterTimeout = 6,
-    textScale = 1.5,
+    textScale = 3.0,
     receiveInterval = 0.5
 }
 
@@ -33,20 +33,9 @@ monitor.setTextScale(CONFIG.textScale)
 
 local width, height = monitor.getSize()
 
--- Grandpa Mode: use a large font on 6x6 monitor walls.
--- Fall back one step only when the compact layout would not fit.
-if width < 26 or height < 20 then
-    CONFIG.textScale = 1.0
-    monitor.setTextScale(CONFIG.textScale)
-    width, height = monitor.getSize()
-end
-
-if width < 22 or height < 18 then
-    CONFIG.textScale = 0.8
-    monitor.setTextScale(CONFIG.textScale)
-    width, height = monitor.getSize()
-end
-
+-- Grandpa Mode MAX: keep the requested 3.0 font scale.
+-- The dashboard switches to a minimal layout instead of shrinking text.
+local ultraCompactLayout = width < 36 or height < 22
 local compactLayout = width < 58 or height < 30
 
 local C = {
@@ -235,6 +224,95 @@ local function drawDashboard()
     elseif not altar.active then
         status = "STANDBY"
         statusColour = C.orange
+    end
+
+    if ultraCompactLayout then
+        local innerWidth = math.max(1, width - 2)
+        local function smallCenter(y, value, colour)
+            center(canvas, y, fit(value, innerWidth), colour)
+        end
+
+        writeAt(canvas, 1, 1, "+" .. string.rep("=", math.max(0, width - 2)) .. "+", C.border)
+        smallCenter(2, "BLOOD ALTAR", C.red)
+        smallCenter(3, "TIER " .. tostring(altar.tier or "?") .. " / " .. status, statusColour)
+        rule(canvas, 4, "-", C.border)
+
+        smallCenter(5, "LIFE ESSENCE", C.purple)
+        smallCenter(6, formatNumber(stored) .. "/" .. formatNumber(capacity) .. " LP", C.white)
+
+        local smallBarWidth = math.max(1, width - 4)
+        local smallFilled = math.floor(smallBarWidth * percentage / 100)
+        smallFilled = math.max(0, math.min(smallBarWidth, smallFilled))
+        local smallBarX = math.max(1, math.floor((width - smallBarWidth - 2) / 2) + 1)
+
+        writeAt(canvas, smallBarX, 7, "[", C.border)
+        writeAt(canvas, smallBarX + 1, 7, string.rep("#", smallFilled), C.red)
+        writeAt(
+            canvas,
+            smallBarX + smallFilled + 1,
+            7,
+            string.rep("-", smallBarWidth - smallFilled),
+            C.muted
+        )
+        writeAt(canvas, smallBarX + smallBarWidth + 1, 7, "]", C.border)
+        smallCenter(8, string.format("%.1f%% STORED", percentage), C.white)
+
+        rule(canvas, 9, "-", C.border)
+        smallCenter(10, "CRAFTING", C.cyan)
+
+        local itemText = altar.inputCount > 0
+            and (altar.inputItem .. " x" .. altar.inputCount)
+            or "No item"
+        smallCenter(11, "ITEM: " .. itemText, C.white)
+
+        local required = math.max(0, (altar.liquidRequired or 0) * math.max(1, altar.inputCount or 0))
+        local progress = math.max(0, altar.progress or 0)
+        local progressPercent = required > 0 and math.min(100, progress / required * 100) or 0
+
+        smallCenter(
+            12,
+            formatNumber(progress) .. "/" .. formatNumber(required) .. " LP",
+            C.white
+        )
+
+        local progressFilled = math.floor(smallBarWidth * progressPercent / 100)
+        progressFilled = math.max(0, math.min(smallBarWidth, progressFilled))
+        writeAt(canvas, smallBarX, 13, "[", C.border)
+        writeAt(canvas, smallBarX + 1, 13, string.rep("#", progressFilled), C.cyan)
+        writeAt(
+            canvas,
+            smallBarX + progressFilled + 1,
+            13,
+            string.rep("-", smallBarWidth - progressFilled),
+            C.muted
+        )
+        writeAt(canvas, smallBarX + smallBarWidth + 1, 13, "]", C.border)
+        smallCenter(14, string.format("%.1f%% COMPLETE", progressPercent), C.cyan)
+
+        if height >= 18 then
+            rule(canvas, 15, "-", C.border)
+            smallCenter(
+                16,
+                "USE " .. tostring(altar.consumptionRate) .. " / DRAIN " .. tostring(altar.drainRate),
+                C.orange
+            )
+        end
+
+        if height >= 20 then
+            smallCenter(
+                17,
+                "BUFFER " .. formatNumber(altar.totalCharge) .. "/" .. formatNumber(altar.maxCharge),
+                C.blue
+            )
+        end
+
+        if height >= 21 then
+            smallCenter(height - 1, "POTATOCORE // BLOOD MAGIC", C.red)
+        end
+
+        writeAt(canvas, 1, height, "+" .. string.rep("=", math.max(0, width - 2)) .. "+", C.border)
+        render(canvas)
+        return
     end
 
     if compactLayout then
