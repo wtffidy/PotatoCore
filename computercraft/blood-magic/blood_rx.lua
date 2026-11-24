@@ -14,7 +14,6 @@ local CONFIG = {
     monitorSide = "back",
     protocol = "potatocore_blood_altar_v1",
     transmitterTimeout = 6,
-    textScale = 1.5,
     receiveInterval = 0.5
 }
 
@@ -34,18 +33,7 @@ end
 
 rednet.open(CONFIG.modemSide)
 
--- Some monitor peripherals/wrappers may not expose setTextScale.
--- Use 1.5 when available; otherwise continue with the monitor's current scale.
-local scaleSupported = type(monitor.setTextScale) == "function"
-if scaleSupported then
-    local scaleOk, scaleError = pcall(monitor.setTextScale, CONFIG.textScale)
-    if not scaleOk then
-        printError("Could not set monitor scale: " .. tostring(scaleError))
-        scaleSupported = false
-    end
-else
-    printError("Monitor has no setTextScale method; keeping its current scale.")
-end
+-- Keep the monitor's current scale; the monitor may not support scaling via this peripheral.
 
 local width, height = monitor.getSize()
 local source
@@ -194,7 +182,7 @@ end
 print("POTATOCORE // BLOOD ALTAR MONITOR")
 print("Monitor: BACK (" .. width .. "x" .. height .. ")")
 print("Ender Modem: LEFT")
-print("Text scale: " .. (scaleSupported and tostring(CONFIG.textScale) or "current"))
+print("Text scale: using monitor default")
 print("Protocol: " .. CONFIG.protocol)
 
 monitor.setBackgroundColor(C.background)
