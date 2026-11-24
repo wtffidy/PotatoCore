@@ -219,10 +219,9 @@ while true do
             }
             lastError = nil
         elseif message.kind == "blood_altar_offline" then
+            -- Offline packets are diagnostic hints, not proof that the network
+            -- transmitter vanished. Keep the last good reading until it times out.
             lastError = tostring(message.error or "Altar reader offline")
-            if source then
-                source.seen = 0
-            end
         end
 
         dashboard()
