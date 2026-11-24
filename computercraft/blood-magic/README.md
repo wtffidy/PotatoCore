@@ -38,7 +38,7 @@ wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/blo
 startup.lua
 ```
 
-The receiver requests text scale 1.5 when the attached monitor exposes the `setTextScale` method. If it does not, it keeps the monitor's current scale and continues instead of crashing.
+The receiver leaves the monitor at its current configured text scale. It does not call a scale API, so a peripheral without that method cannot crash the dashboard.
 
 The startup file automatically launches the corresponding script after reboot. These commands replace the computer's existing `startup.lua`.
 
