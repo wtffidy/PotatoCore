@@ -35,8 +35,14 @@ local width, height = monitor.getSize()
 
 -- Keep the font large on the 6x6 display. Fall back only if the
 -- monitor cannot fit even the compact layout at scale 1.0.
-if width < 32 or height < 18 then
+if width < 32 or height < 22 then
     CONFIG.textScale = 0.8
+    monitor.setTextScale(CONFIG.textScale)
+    width, height = monitor.getSize()
+end
+
+if width < 28 or height < 20 then
+    CONFIG.textScale = 0.7
     monitor.setTextScale(CONFIG.textScale)
     width, height = monitor.getSize()
 end
