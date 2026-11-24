@@ -15,6 +15,7 @@ local CONFIG = {
     modemSide = "bottom",
     protocol = "potatocore_blood_altar_v1",
     updateInterval = 0.5,
+    readerGracePeriod = 15,
     altarBlock = "bloodmagic:altar"
 }
 
@@ -135,36 +136,68 @@ print("Protocol    : " .. CONFIG.protocol)
 print("----------------------------------------")
 
 local lastError
+local lastGoodAltar
+local lastGoodAt
+local offlineBroadcast = false
+
+local function broadcastAltar(altar)
+    rednet.broadcast({
+        kind = "blood_altar",
+        version = 1,
+        computer = os.getComputerID(),
+        altar = altar
+    }, CONFIG.protocol)
+end
+
+local function copyStaleAltar(altar, errorMessage, staleSeconds)
+    local copy = {}
+    for key, value in pairs(altar) do
+        copy[key] = value
+    end
+
+    copy.readingDelayed = true
+    copy.readerError = errorMessage
+    copy.readingDelayedSeconds = staleSeconds
+    return copy
+end
 
 while true do
     local success, altar, readError = pcall(readAltar)
 
     if success and altar then
-        rednet.broadcast({
-            kind = "blood_altar",
-            version = 1,
-            computer = os.getComputerID(),
-            altar = altar
-        }, CONFIG.protocol)
+        altar.readingDelayed = false
+        lastGoodAltar = altar
+        lastGoodAt = os.epoch("utc")
+        offlineBroadcast = false
+        broadcastAltar(altar)
 
         if lastError then
-            print("Altar link restored.")
+            print("Block Reader link restored.")
             lastError = nil
         end
     else
         local message = success and tostring(readError) or tostring(altar)
+        local now = os.epoch("utc")
+        local staleSeconds = lastGoodAt and math.floor((now - lastGoodAt) / 1000) or nil
+
         if message ~= lastError then
             printError(message)
             lastError = message
         end
 
-        rednet.broadcast({
-            kind = "blood_altar_offline",
-            version = 1,
-            computer = os.getComputerID(),
-            error = message,
-            timestamp = os.epoch("utc")
-        }, CONFIG.protocol)
+        if lastGoodAltar and staleSeconds <= CONFIG.readerGracePeriod then
+            -- Hold the last valid altar reading through brief Block Reader dropouts.
+            broadcastAltar(copyStaleAltar(lastGoodAltar, message, staleSeconds))
+        elseif not offlineBroadcast then
+            rednet.broadcast({
+                kind = "blood_altar_offline",
+                version = 1,
+                computer = os.getComputerID(),
+                error = message,
+                timestamp = now
+            }, CONFIG.protocol)
+            offlineBroadcast = true
+        end
     end
 
     sleep(CONFIG.updateInterval)
