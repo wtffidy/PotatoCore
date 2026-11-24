@@ -73,7 +73,7 @@ local function readAltar()
         capacity = capacity,
         tier = tostring(altar.upgradeLevel or "UNKNOWN"),
         progress = tonumber(altar.progress) or 0,
-        active = altar.isActive == true,
+        active = altar.isActive == true or tonumber(altar.isActive) == 1,
         liquidRequired = tonumber(altar.liquidRequired) or 0,
         consumptionRate = tonumber(altar.consumptionRate) or 0,
         drainRate = tonumber(altar.drainRate) or 0,
