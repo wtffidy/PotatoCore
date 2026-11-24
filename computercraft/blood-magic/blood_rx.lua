@@ -15,7 +15,7 @@ local CONFIG = {
     monitorSide = "top",
     protocol = "potatocore_blood_altar_v1",
     transmitterTimeout = 6,
-    textScale = 0.8,
+    textScale = 1.0,
     receiveInterval = 0.5
 }
 
@@ -32,17 +32,16 @@ rednet.open(CONFIG.modemSide)
 monitor.setTextScale(CONFIG.textScale)
 
 local width, height = monitor.getSize()
-if width < 52 or height < 22 then
-    CONFIG.textScale = 0.7
+
+-- Keep the font large on the 6x6 display. Fall back only if the
+-- monitor cannot fit even the compact layout at scale 1.0.
+if width < 32 or height < 18 then
+    CONFIG.textScale = 0.8
     monitor.setTextScale(CONFIG.textScale)
     width, height = monitor.getSize()
 end
 
-if width < 42 or height < 18 then
-    CONFIG.textScale = 0.5
-    monitor.setTextScale(CONFIG.textScale)
-    width, height = monitor.getSize()
-end
+local compactLayout = width < 58 or height < 30
 
 local C = {
     background = colors.black,
@@ -195,12 +194,22 @@ local function drawDashboard()
     rule(canvas, 4, "=", C.border)
 
     if not online then
-        center(canvas, 7, "ALTAR LINK OFFLINE", C.orange)
-        center(canvas, 9, "CHECK THE ALTAR TRANSMITTER", C.muted)
-        if lastError then
-            center(canvas, 11, fit(lastError, width - 4), C.orange)
+        if compactLayout then
+            center(canvas, 2, "BLOOD ALTAR CORE", C.red)
+            center(canvas, 5, "ALTAR LINK OFFLINE", C.orange)
+            center(canvas, 7, "CHECK ALTAR TRANSMITTER", C.muted)
+            if lastError then
+                center(canvas, 9, fit(lastError, width - 4), C.orange)
+            end
+        else
+            center(canvas, 7, "ALTAR LINK OFFLINE", C.orange)
+            center(canvas, 9, "CHECK THE ALTAR TRANSMITTER", C.muted)
+            if lastError then
+                center(canvas, 11, fit(lastError, width - 4), C.orange)
+            end
         end
 
+        writeAt(canvas, 1, 1, "+" .. string.rep("=", width - 2) .. "+", C.border)
         writeAt(canvas, 1, height, "+" .. string.rep("=", width - 2) .. "+", C.border)
         render(canvas)
         return
@@ -220,6 +229,74 @@ local function drawDashboard()
     elseif not altar.active then
         status = "STANDBY"
         statusColour = C.orange
+    end
+
+    if compactLayout then
+        writeAt(canvas, 1, 1, "+" .. string.rep("=", width - 2) .. "+", C.border)
+        center(canvas, 2, "BLOOD ALTAR CORE", C.red)
+        center(canvas, 3, "TIER " .. tostring(altar.tier or "UNKNOWN") .. "  |  " .. status, statusColour)
+        rule(canvas, 4, "-", C.border)
+
+        center(canvas, 5, "LIFE ESSENCE", C.purple)
+        center(canvas, 6, formatNumber(stored) .. " / " .. formatNumber(capacity) .. " LP", C.white)
+
+        local compactBarWidth = math.max(6, width - 6)
+        local compactFilled = math.floor(compactBarWidth * percentage / 100)
+        compactFilled = math.max(0, math.min(compactBarWidth, compactFilled))
+        local compactBarX = math.floor((width - compactBarWidth - 2) / 2) + 1
+
+        writeAt(canvas, compactBarX, 7, "[", C.border)
+        writeAt(canvas, compactBarX + 1, 7, string.rep("#", compactFilled), C.red)
+        writeAt(canvas, compactBarX + compactFilled + 1, 7, string.rep("-", compactBarWidth - compactFilled), C.muted)
+        writeAt(canvas, compactBarX + compactBarWidth + 1, 7, "]", C.border)
+        center(canvas, 8, string.format("%.1f%% STORED", percentage), C.white)
+
+        rule(canvas, 9, "-", C.border)
+        center(canvas, 10, "CRAFTING", C.cyan)
+
+        local itemText = altar.inputCount > 0
+            and (altar.inputItem .. " x" .. altar.inputCount)
+            or "No item in altar"
+        writeAt(canvas, 2, 11, "ITEM: " .. fit(itemText, width - 9), C.white)
+
+        local required = math.max(0, (altar.liquidRequired or 0) * math.max(1, altar.inputCount or 0))
+        local progress = math.max(0, altar.progress or 0)
+        local progressPercent = required > 0 and math.min(100, progress / required * 100) or 0
+        writeAt(
+            canvas,
+            2,
+            12,
+            "PROGRESS " .. formatNumber(progress) .. "/" .. formatNumber(required) .. " LP",
+            C.white
+        )
+
+        local progressFilled = math.floor(compactBarWidth * progressPercent / 100)
+        progressFilled = math.max(0, math.min(compactBarWidth, progressFilled))
+        writeAt(canvas, compactBarX, 13, "[", C.border)
+        writeAt(canvas, compactBarX + 1, 13, string.rep("#", progressFilled), C.cyan)
+        writeAt(canvas, compactBarX + progressFilled + 1, 13, string.rep("-", compactBarWidth - progressFilled), C.muted)
+        writeAt(canvas, compactBarX + compactBarWidth + 1, 13, "]", C.border)
+        center(canvas, 14, string.format("%.1f%% COMPLETE", progressPercent), C.cyan)
+
+        rule(canvas, 15, "-", C.border)
+        center(canvas, 16, "ALTAR TELEMETRY", C.purple)
+        writeAt(canvas, 2, 17, "USE: " .. tostring(altar.consumptionRate) .. " LP/TICK", C.orange)
+        writeAt(canvas, 2, 18, "DRAIN: " .. tostring(altar.drainRate) .. " LP/TICK", C.orange)
+        writeAt(
+            canvas,
+            2,
+            19,
+            "BUFFER: " .. formatNumber(altar.totalCharge) .. "/" .. formatNumber(altar.maxCharge),
+            C.blue
+        )
+        if height >= 21 then
+            writeAt(canvas, 2, 20, "CAP: " .. formatNumber(altar.bufferCapacity), C.blue)
+        end
+
+        writeAt(canvas, 1, height - 1, fit("POTATOCORE // BLOOD MAGIC", width - 2), C.red)
+        writeAt(canvas, 1, height, "+" .. string.rep("=", width - 2) .. "+", C.border)
+        render(canvas)
+        return
     end
 
     writeAt(canvas, 3, 5, "[ALTAR] " .. status, statusColour)
