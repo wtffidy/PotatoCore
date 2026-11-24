@@ -149,6 +149,11 @@ local function dashboard()
         statusColour = C.cyan
     end
 
+    if altar.readingDelayed then
+        status = "READER RETRY"
+        statusColour = C.orange
+    end
+
     addLine(lines, "TIER " .. tostring(altar.tier or "?") .. " / " .. status, statusColour)
     addLine(lines, string.rep("-", width), C.muted)
     addLine(lines, "LP TANK", C.purple)
