@@ -37,14 +37,10 @@ Run these on the computer connected to the monitor and Ender Modem:
 delete blood_rx.lua
 wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/blood-magic/blood_rx.lua blood_rx.lua
 wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/blood-magic/startup_rx.lua startup.lua
-blood_rx.lua
+startup.lua
 ```
 
-Run `startup_rx.lua` only if you want to install it under a different startup filename. To auto-start at boot, download it to `startup.lua` instead:
-
-```text
-wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/blood-magic/startup_rx.lua startup.lua
-```
+To run the receiver manually without installing automatic startup, simply run `blood_rx.lua` instead of `startup.lua`.
 
 ## Data displayed
 
