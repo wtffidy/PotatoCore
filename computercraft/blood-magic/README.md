@@ -39,7 +39,7 @@ wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/blo
 startup.lua
 ```
 
-The receiver leaves the monitor at its current configured text scale. It does not call a scale API, so a peripheral without that method cannot crash the dashboard.
+The receiver leaves the monitor at its current configured text scale. It does not call a scale API, so a peripheral without that method cannot crash the dashboard. The transmitter also holds the last valid altar sample for a 15-second reader grace period when the Block Reader briefly reports no block; the monitor labels this state READER RETRY instead of flashing offline.
 
 The startup file automatically launches the corresponding script after reboot. These commands replace the computer's existing `startup.lua`.
 
