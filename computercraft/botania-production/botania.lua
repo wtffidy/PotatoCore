@@ -2,9 +2,10 @@
 -- POTATOCORE // BOTANIA PRODUCTION LINE
 -- Dedicated 6x6 production dashboard.
 --
--- Hardware on THIS monitor computer:
---   BOTTOM = Wired Modem
---   Monitor = connected to this computer or its wired network
+-- Wired Modem is auto-detected on any side.
+--   Monitor computer layout: modem BOTTOM.
+--   Machine-side computer layout: modem TOP.
+--   All readers and the monitor must share one wired network.
 --
 -- Seven Block Readers connect through the same wired modem
 -- network. Each reader sits above its machine and faces DOWN.
@@ -13,16 +14,24 @@
 -- ============================================================
 
 local CONFIG = {
-    modemSide = "bottom",
+    modemSide = nil, -- Auto-detected; monitor PC bottom, machine PCs top.
     textScale = 0.5,
     refreshInterval = 2,
     diagnosticInterval = 10,
     diagnosticFile = "botania_data.txt"
 }
 
-local modemType = peripheral.getType(CONFIG.modemSide)
-if modemType ~= "modem" then
-    error("Wired modem not found on " .. CONFIG.modemSide:upper() .. "!")
+local modemSides = { "bottom", "top", "left", "right", "front", "back" }
+
+for _, side in ipairs(modemSides) do
+    if peripheral.getType(side) == "modem" then
+        CONFIG.modemSide = side
+        break
+    end
+end
+
+if not CONFIG.modemSide then
+    error("Wired modem not found! Checked bottom, top, left, right, front and back.")
 end
 
 local monitor = peripheral.find("monitor")
