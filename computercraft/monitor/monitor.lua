@@ -43,6 +43,7 @@ end
 
 local C = {
     background = colors.black,
+    panel = colors.gray,
     white = colors.white,
     muted = colors.gray,
     border = colors.blue,
@@ -145,7 +146,16 @@ local function summarizeData(data)
             return
         end
 
-        for key, value in pairs(node) do
+        local keys = {}
+        for key in pairs(node) do
+            keys[#keys + 1] = key
+        end
+        table.sort(keys, function(a, b)
+            return tostring(a) < tostring(b)
+        end)
+
+        for _, key in ipairs(keys) do
+            local value = node[key]
             local keyText = tostring(key)
             local currentPath = path == "" and keyText or path .. "." .. keyText
             local normalizedKey = keyText:lower()
@@ -298,9 +308,9 @@ end
 local function buildMachineInfo(reader)
     if not reader then
         return {
-            status = "NO SIGNAL",
+            status = "OFFLINE",
             statusColour = C.red,
-            computer = "NOT CONNECTED",
+            computer = "--",
             craft = "Waiting for machine",
             mana = "Not exposed",
             required = "Not exposed",
@@ -313,14 +323,26 @@ local function buildMachineInfo(reader)
 
     local data = summarizeData(reader.data)
     local hasData = type(reader.data) == "table"
+    local mana = joinValues(data.mana, "Not exposed")
+    local required = joinValues(data.required, "Not exposed")
+
+    if data.manaCurrent and data.manaMaximum then
+        mana = compactNumber(data.manaCurrent) .. " / " .. compactNumber(data.manaMaximum)
+    elseif data.manaCurrent then
+        mana = compactNumber(data.manaCurrent)
+    end
+
+    if data.manaRequired then
+        required = compactNumber(data.manaRequired) .. " mana"
+    end
 
     return {
-        status = hasData and "ONLINE" or "NO BLOCK DATA",
+        status = hasData and "ONLINE" or "NO DATA",
         statusColour = hasData and C.green or C.orange,
-        computer = "PC " .. reader.computer,
-        craft = joinValues(data.process, "Recipe data unavailable"),
-        mana = joinValues(data.mana, "Not exposed"),
-        required = joinValues(data.required, "Not exposed"),
+        computer = "PC " .. tostring(reader.computer),
+        craft = joinValues(data.process, "No recipe data"),
+        mana = mana,
+        required = required,
         items = joinValues(data.items, "Not exposed"),
         manaCurrent = data.manaCurrent,
         manaMaximum = data.manaMaximum,
@@ -385,58 +407,17 @@ local function writeRight(canvas, y, x, value, foreground)
 end
 
 local function drawCard(canvas, index, definition, info, x, y, cardWidth)
-    local right = x + cardWidth - 1
     local innerWidth = cardWidth - 2
-    local heading = fit(string.format("%02d // %s", index, definition.label), innerWidth)
-    local leftDashes = math.max(0, math.floor((innerWidth - #heading) / 2))
-    local rightDashes = math.max(0, innerWidth - #heading - leftDashes)
+    local heading = string.format("%02d  %s", index, definition.label)
 
-    writeAt(canvas, x, y, "+" .. string.rep("-", leftDashes), C.border)
-    writeAt(canvas, x + 1 + leftDashes, y, heading, C.cyan)
-    writeAt(canvas, x + 1 + leftDashes + #heading, y, string.rep("-", rightDashes) .. "+", C.border)
-
-    writeAt(canvas, x, y + 1, "|", C.border)
-    writeAt(canvas, x + 1, y + 1, fit("STATUS: " .. info.status .. " " .. info.computer, innerWidth), info.statusColour)
-    writeAt(canvas, right, y + 1, "|", C.border)
-
-    writeAt(canvas, x, y + 2, "|", C.border)
-    writeAt(canvas, x + 1, y + 2, fit("CRAFT: " .. info.craft, innerWidth), C.yellow)
-    writeAt(canvas, right, y + 2, "|", C.border)
-
-    local manaText = "MANA: " .. info.mana
-    local percentage = nil
-
-    if info.manaCurrent and info.manaMaximum then
-        percentage = info.manaMaximum > 0
-            and math.max(0, math.min(100, info.manaCurrent / info.manaMaximum * 100))
-            or 0
-
-        manaText = string.format(
-            "MANA: %s/%s %.0f%%",
-            compactNumber(info.manaCurrent),
-            compactNumber(info.manaMaximum),
-            percentage
-        )
-    end
-
-    writeAt(canvas, x, y + 3, "|", C.border)
-    writeAt(canvas, x + 1, y + 3, fit(manaText, innerWidth), C.green)
-    writeAt(canvas, right, y + 3, "|", C.border)
-
-    local requiredText = "NEED: " .. info.required
-    if info.manaRequired then
-        requiredText = "NEED: " .. compactNumber(info.manaRequired) .. " mana"
-    end
-
-    writeAt(canvas, x, y + 4, "|", C.border)
-    writeAt(canvas, x + 1, y + 4, fit(requiredText, innerWidth), C.purple)
-    writeAt(canvas, right, y + 4, "|", C.border)
-
-    writeAt(canvas, x, y + 5, "|", C.border)
-    writeAt(canvas, x + 1, y + 5, fit("I/O: " .. info.items, innerWidth), C.blue)
-    writeAt(canvas, right, y + 5, "|", C.border)
-
-    writeAt(canvas, x, y + 6, "+" .. string.rep("-", innerWidth) .. "+", C.border)
+    -- Solid header strip, then a clean five-line telemetry body.
+    writeAt(canvas, x, y, string.rep(" ", cardWidth), C.white, C.panel)
+    writeAt(canvas, x + 1, y, fit(heading, innerWidth), C.cyan, C.panel)
+    writeAt(canvas, x + 1, y + 1, fit(info.status .. "  " .. info.computer, innerWidth), info.statusColour)
+    writeAt(canvas, x + 1, y + 2, fit("RECIPE  " .. info.craft, innerWidth), C.yellow)
+    writeAt(canvas, x + 1, y + 3, fit("MANA    " .. info.mana, innerWidth), C.green)
+    writeAt(canvas, x + 1, y + 4, fit("NEED    " .. info.required, innerWidth), C.purple)
+    writeAt(canvas, x + 1, y + 5, fit("I/O     " .. info.items, innerWidth), C.blue)
 end
 
 local function renderCanvas(canvas)
@@ -505,40 +486,44 @@ local function drawDashboard()
     end
 
     writeAt(canvas, 1, 1, "+" .. string.rep("=", width - 2) .. "+", C.border)
-    writeCentered(canvas, 2, "POTATOCORE // BOTANIA PRODUCTION", C.green)
-    writeCentered(canvas, 3, "MACHINE TELEMETRY // RECIPE // MANA", C.blue)
+    writeCentered(canvas, 2, "POTATOCORE", C.green)
+    writeCentered(canvas, 3, "BOTANIA PRODUCTION  /  MACHINE TELEMETRY", C.cyan)
     writeAt(canvas, 1, 4, "+" .. string.rep("=", width - 2) .. "+", C.border)
 
-    writeAt(canvas, 2, 5, "[SYS] " .. (online == 7 and "ALL MACHINES ONLINE" or "WAITING FOR MACHINES"),
-        online == 7 and C.green or C.orange)
-    writeRight(canvas, 5, width - 2, "[M] " .. online .. "/7  [PC] " .. activeComputers, C.cyan)
+    local systemState = online == #MACHINES and "ALL MACHINES LINKED" or "WAITING FOR MACHINES"
+    local systemColour = online == #MACHINES and C.green or C.orange
+    writeAt(canvas, 2, 5, fit("SYSTEM  " .. systemState, math.floor(width / 2) - 2), systemColour)
+    writeRight(canvas, 5, width - 2, "MACHINES " .. online .. "/" .. #MACHINES .. "  |  PCS " .. activeComputers, C.cyan)
+    writeAt(canvas, 1, 6, "+" .. string.rep("-", width - 2) .. "+", C.border)
 
-    local columns = 3
-    local gap = 1
-    local cardWidth = math.floor((width - 2 - gap * (columns - 1)) / columns)
-    local firstX = math.floor((width - (cardWidth * columns + gap * (columns - 1))) / 2) + 1
+    -- Two columns keep each machine card wide enough to read on the 6x6 display.
+    local columns = 2
+    local gap = 2
+    local cardWidth = math.floor((width - 3) / columns)
+    local firstX = 2
+    local secondX = firstX + cardWidth + gap
     local firstY = 7
-    local cardHeight = 7
-    local rowGap = 1
-
-    local finalCardBottom = firstY + 2 * (cardHeight + rowGap) + cardHeight - 1
-    if finalCardBottom >= height - 2 then
-        error("Monitor is too short for the production dashboard. Need at least "
-            .. (finalCardBottom + 3) .. " rows; detected " .. height .. ".")
-    end
+    local cardHeight = 6
+    local rowCount = math.ceil(#MACHINES / columns)
+    local footerY = height - 1
+    local usableCardHeight = footerY - firstY
+    local extraSpace = usableCardHeight - rowCount * cardHeight
+    local rowGap = math.max(0, math.floor(extraSpace / math.max(1, rowCount - 1)))
 
     for index, definition in ipairs(MACHINES) do
         local column = (index - 1) % columns
         local row = math.floor((index - 1) / columns)
-        local x = firstX + column * (cardWidth + gap)
+        local x = column == 0 and firstX or secondX
         local y = firstY + row * (cardHeight + rowGap)
 
         drawCard(canvas, index, definition, buildMachineInfo(assigned[index]), x, y, cardWidth)
     end
 
     local uptime = formatDuration((os.epoch("utc") - startedAt) / 1000)
-    writeAt(canvas, 2, height - 1, "LOG: " .. CONFIG.diagnosticFile, C.blue)
-    writeRight(canvas, height - 1, width - 2, "UP " .. uptime .. " // RX ONLINE", C.green)
+    local footerRight = "UP " .. uptime .. "  /  RX LIVE"
+    local footerLeft = "DIAG  " .. CONFIG.diagnosticFile
+    writeAt(canvas, 2, footerY, fit(footerLeft, width - #footerRight - 4), C.muted)
+    writeRight(canvas, footerY, width - 2, footerRight, C.green)
     writeAt(canvas, 1, height, "+" .. string.rep("=", width - 2) .. "+", C.border)
 
     renderCanvas(canvas)
