@@ -1,11 +1,14 @@
 # PotatoCore ComputerCraft Mana Network
 
-Remote multi-pool Botania mana monitor for CC:Tweaked, Advanced Peripherals, and Ender Modems.
+Remote multi-pool Botania mana monitor for CC:Tweaked, Advanced Peripherals, and Ender Modems. Install the Mana Pool transmitter with Ctrl+P from FixAdvancedComputers.Py.
 
 ## Files
 
 - `mana_tx.lua`: run on each computer that can see one or more Botania Mana Pool peripherals.
-- `mana_rx.lua`: run on the remote computer connected to the monitor wall.
+- `mana_rx.lua`: run on the remote computer connected to the existing 3x3 Mana Core monitor.
+- `startup_tx.lua`: autostart launcher for Mana Pool transmitter computers.
+
+The new Botania 6x6 production dashboard is separate. Its receiver is in computercraft/monitor/monitor.lua, and machine computers use computercraft/machines/machines.lua.
 
 ## Confirmed Project Infinity hardware layout
 
@@ -20,6 +23,8 @@ Remote multi-pool Botania mana monitor for CC:Tweaked, Advanced Peripherals, and
 The transmitter scans all locally accessible peripherals, so it does not need a configured pool side. The Ender Modem side is configured as `bottom` for the under-pool computer layout. If your hardware differs, edit the CONFIG block near the top of the relevant Lua file.
 
 ## Install from the CraftOS shell
+
+Use Ctrl+P in FixAdvancedComputers.Py on each Mana Pool transmitter computer. It downloads mana_tx.lua, installs startup.lua, and launches the transmitter. The existing 3x3 receiver remains on mana_rx.lua.
 
 HTTP must be enabled for CC:Tweaked. Run these commands on the relevant computers:
 
