@@ -177,6 +177,7 @@ def poll_hotkeys():
     }
     callbacks = {hotkey_id: details[3] for hotkey_id, details in hotkeys.items()}
     registered_ids = set()
+    failed_ids = set()
     message = wintypes.MSG()
 
     print("[INPUT] Installer shortcuts are registered only while Project Infinity is focused.")
@@ -187,7 +188,7 @@ def poll_hotkeys():
 
             if focused:
                 for hotkey_id, (modifiers, virtual_key, label, _) in hotkeys.items():
-                    if hotkey_id in registered_ids:
+                    if hotkey_id in registered_ids or hotkey_id in failed_ids:
                         continue
 
                     registered = user32.RegisterHotKey(
@@ -200,11 +201,14 @@ def poll_hotkeys():
                     if registered:
                         registered_ids.add(hotkey_id)
                     else:
+                        failed_ids.add(hotkey_id)
                         print(f"[INPUT] Could not register {label}; it may already be in use.")
             else:
                 for hotkey_id in tuple(registered_ids):
                     user32.UnregisterHotKey(None, hotkey_id)
                     registered_ids.remove(hotkey_id)
+
+                failed_ids.clear()
 
             while user32.PeekMessageW(ctypes.byref(message), None, 0, 0, PM_REMOVE):
                 if message.message != WM_HOTKEY:
