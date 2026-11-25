@@ -3,13 +3,12 @@ import threading
 import time
 
 try:
-    import keyboard
     import pyautogui
 except ImportError as exc:
     missing = exc.name or "keyboard / pyautogui"
     raise SystemExit(
         f"Missing dependency: {missing}\n"
-        "Install with: py -m pip install keyboard pyautogui"
+        "Install with: py -m pip install pyautogui"
     ) from exc
 
 
@@ -55,15 +54,30 @@ pyautogui.FAILSAFE = True
 pyautogui.PAUSE = 0.05
 
 
+def get_active_window_title():
+    """Return the current Windows foreground title without touching keyboard input."""
+    user32 = ctypes.windll.user32
+    window_handle = user32.GetForegroundWindow()
+    title_length = user32.GetWindowTextLengthW(window_handle)
+    title_buffer = ctypes.create_unicode_buffer(title_length + 1)
+    user32.GetWindowTextW(window_handle, title_buffer, len(title_buffer))
+    return title_buffer.value
+
+
+def is_minecraft_window_focused():
+    """Only listen for installer shortcuts while Project Infinity is focused."""
+    try:
+        title = get_active_window_title()
+    except Exception:
+        return False
+
+    return bool(title) and any(hint in title.casefold() for hint in TARGET_WINDOW_HINTS)
+
+
 def active_window_is_minecraft():
     """Prevent installer keystrokes from going into an unrelated window."""
     try:
-        user32 = ctypes.windll.user32
-        window_handle = user32.GetForegroundWindow()
-        title_length = user32.GetWindowTextLengthW(window_handle)
-        title_buffer = ctypes.create_unicode_buffer(title_length + 1)
-        user32.GetWindowTextW(window_handle, title_buffer, len(title_buffer))
-        title = title_buffer.value
+        title = get_active_window_title()
     except Exception as exc:
         print(f"[FOCUS] Could not determine the active window: {exc}")
         return False
@@ -144,29 +158,47 @@ def cancel_sequence():
     else:
         print("[STOP] No installer sequence is running.")
 
-keyboard.add_hotkey(
-    "ctrl+p",
-    lambda: start_sequence("CTRL+P | MANA POOLS", MANA_POOL_COMMANDS),
-    suppress=True
-)
+VK_CONTROL = 0x11
+VK_SHIFT = 0x10
 
-keyboard.add_hotkey(
-    "ctrl+m",
-    lambda: start_sequence("CTRL+M | PRODUCTION MONITOR", MONITOR_COMMANDS),
-    suppress=True
-)
 
-keyboard.add_hotkey(
-    "ctrl+b",
-    lambda: start_sequence("CTRL+B | MACHINES", MACHINE_COMMANDS),
-    suppress=True
-)
+def is_key_down(virtual_key):
+    """Read key state without suppressing or modifying the user's input."""
+    return bool(ctypes.windll.user32.GetAsyncKeyState(virtual_key) & 0x8000)
 
-keyboard.add_hotkey(
-    "ctrl+shift+x",
-    cancel_sequence,
-    suppress=True
-)
+
+def hotkey_is_pressed(virtual_key, require_shift=False):
+    if not is_key_down(VK_CONTROL) or not is_key_down(virtual_key):
+        return False
+
+    return not require_shift or is_key_down(VK_SHIFT)
+
+
+def poll_hotkeys():
+    """Poll shortcuts only while Minecraft is focused. No keyboard hooks are installed."""
+    hotkeys = {
+        "CTRL+P": (ord("P"), False, lambda: start_sequence("CTRL+P | MANA POOLS", MANA_POOL_COMMANDS)),
+        "CTRL+M": (ord("M"), False, lambda: start_sequence("CTRL+M | PRODUCTION MONITOR", MONITOR_COMMANDS)),
+        "CTRL+B": (ord("B"), False, lambda: start_sequence("CTRL+B | MACHINES", MACHINE_COMMANDS)),
+        "CTRL+SHIFT+X": (ord("X"), True, cancel_sequence)
+    }
+    previous_states = {name: False for name in hotkeys}
+
+    print("[INPUT] Shortcuts are passive and only active while Minecraft is focused.")
+
+    while True:
+        focused = is_minecraft_window_focused()
+        current_states = {}
+
+        for name, (virtual_key, require_shift, callback) in hotkeys.items():
+            pressed = focused and hotkey_is_pressed(virtual_key, require_shift)
+            current_states[name] = pressed
+
+            if pressed and not previous_states[name]:
+                callback()
+
+        previous_states = current_states
+        time.sleep(0.025)
 
 print("======================================================")
 print(" POTATOCORE // ADVANCED COMPUTER INSTALLER")
@@ -188,7 +220,10 @@ print("           before pressing its install hotkey.")
 print("           If a Lua program is running, press CTRL+C first.")
 print("           Keep Minecraft focused until commands finish.")
 print("CTRL + SHIFT + X | CANCEL current sequence")
-print("CTRL + C         | EXIT")
+print("CTRL + C         | EXIT from this console")
 print("======================================================")
 
-keyboard.wait()
+try:
+    poll_hotkeys()
+except KeyboardInterrupt:
+    print("\n[EXIT] PotatoCore installer stopped.")
