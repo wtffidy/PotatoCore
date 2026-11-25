@@ -72,7 +72,7 @@ local lastDiagnostic = 0
 local lastDraw = 0
 
 local MACHINES = {
-    { id = "industrial_agglomeration_factory", label = "INDUSTRIAL AGGLOMERATION" },
+    { id = "industrial_agglomeration_factory", label = "IND. AGGLOMERATION" },
     { id = "alfheim_market", label = "ALFHEIM MARKET" },
     { id = "mechanical_mana_pool", label = "MANA POOL" },
     { id = "mechanical_runic_altar", label = "RUNIC ALTAR" },
@@ -254,14 +254,18 @@ local function findCraftItem(data)
             if type(value) == "table" then
                 walk(value, currentPath, depth + 1)
             elseif type(value) == "string" and recipePath then
-                local itemField = normalizedKey:find("item", 1, true)
-                    or normalizedKey == "id"
-                    or normalizedKey == "name"
+                local explicitItemField = normalizedKey:find("item", 1, true)
                     or normalizedKey == "output"
                     or normalizedKey == "result"
                     or normalizedKey == "crafted"
                     or normalizedKey == "product"
                     or normalizedKey == "registryname"
+                local outputPath = lowerPath:find("output", 1, true)
+                    or lowerPath:find("result", 1, true)
+                    or lowerPath:find("crafted", 1, true)
+                    or lowerPath:find("product", 1, true)
+                local itemField = explicitItemField
+                    or (outputPath and (normalizedKey == "id" or normalizedKey:find("name", 1, true)))
 
                 if itemField then
                     local item = normalizeItem(value)
@@ -495,7 +499,7 @@ local function drawCard(canvas, definition, info, x, y, cardWidth, cardHeight)
 
     cardLine(1, "CRAFTING", info.craftItem, C.yellow)
     cardLine(2, "MANA", info.mana, C.green)
-    cardLine(3, "REQUIRED", info.manaRequired, C.purple)
+    cardLine(3, "MANA NEEDED", info.manaRequired, C.purple)
 
     writeAt(canvas, x, y + cardHeight - 1, "+" .. string.rep("-", innerWidth) .. "+", C.border)
 end
