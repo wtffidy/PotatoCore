@@ -1,11 +1,12 @@
 import ctypes
+from ctypes import wintypes
 import threading
 import time
 
 try:
     import pyautogui
 except ImportError as exc:
-    missing = exc.name or "keyboard / pyautogui"
+    missing = exc.name or "pyautogui"
     raise SystemExit(
         f"Missing dependency: {missing}\n"
         "Install with: py -m pip install pyautogui"
@@ -158,47 +159,65 @@ def cancel_sequence():
     else:
         print("[STOP] No installer sequence is running.")
 
-VK_CONTROL = 0x11
-VK_SHIFT = 0x10
-
-
-def is_key_down(virtual_key):
-    """Read key state without suppressing or modifying the user's input."""
-    return bool(ctypes.windll.user32.GetAsyncKeyState(virtual_key) & 0x8000)
-
-
-def hotkey_is_pressed(virtual_key, require_shift=False):
-    if not is_key_down(VK_CONTROL) or not is_key_down(virtual_key):
-        return False
-
-    return not require_shift or is_key_down(VK_SHIFT)
+MOD_CONTROL = 0x0002
+MOD_SHIFT = 0x0004
+MOD_NOREPEAT = 0x4000
+WM_HOTKEY = 0x0312
+PM_REMOVE = 0x0001
 
 
 def poll_hotkeys():
-    """Poll shortcuts only while Minecraft is focused. No keyboard hooks are installed."""
+    """Register only the installer shortcuts while Project Infinity is focused."""
+    user32 = ctypes.windll.user32
     hotkeys = {
-        "CTRL+P": (ord("P"), False, lambda: start_sequence("CTRL+P | MANA POOLS", MANA_POOL_COMMANDS)),
-        "CTRL+M": (ord("M"), False, lambda: start_sequence("CTRL+M | PRODUCTION MONITOR", MONITOR_COMMANDS)),
-        "CTRL+B": (ord("B"), False, lambda: start_sequence("CTRL+B | MACHINES", MACHINE_COMMANDS)),
-        "CTRL+SHIFT+X": (ord("X"), True, cancel_sequence)
+        1: (MOD_CONTROL, ord("P"), "CTRL+P", lambda: start_sequence("CTRL+P | MANA POOLS", MANA_POOL_COMMANDS)),
+        2: (MOD_CONTROL, ord("M"), "CTRL+M", lambda: start_sequence("CTRL+M | PRODUCTION MONITOR", MONITOR_COMMANDS)),
+        3: (MOD_CONTROL, ord("B"), "CTRL+B", lambda: start_sequence("CTRL+B | MACHINES", MACHINE_COMMANDS)),
+        4: (MOD_CONTROL | MOD_SHIFT, ord("X"), "CTRL+SHIFT+X", cancel_sequence)
     }
-    previous_states = {name: False for name in hotkeys}
+    callbacks = {hotkey_id: details[3] for hotkey_id, details in hotkeys.items()}
+    registered_ids = set()
+    message = wintypes.MSG()
 
-    print("[INPUT] Shortcuts are passive and only active while Minecraft is focused.")
+    print("[INPUT] Installer shortcuts are registered only while Project Infinity is focused.")
 
-    while True:
-        focused = is_minecraft_window_focused()
-        current_states = {}
+    try:
+        while True:
+            focused = is_minecraft_window_focused()
 
-        for name, (virtual_key, require_shift, callback) in hotkeys.items():
-            pressed = focused and hotkey_is_pressed(virtual_key, require_shift)
-            current_states[name] = pressed
+            if focused:
+                for hotkey_id, (modifiers, virtual_key, label, _) in hotkeys.items():
+                    if hotkey_id in registered_ids:
+                        continue
 
-            if pressed and not previous_states[name]:
-                callback()
+                    registered = user32.RegisterHotKey(
+                        None,
+                        hotkey_id,
+                        modifiers | MOD_NOREPEAT,
+                        virtual_key
+                    )
 
-        previous_states = current_states
-        time.sleep(0.025)
+                    if registered:
+                        registered_ids.add(hotkey_id)
+                    else:
+                        print(f"[INPUT] Could not register {label}; it may already be in use.")
+            else:
+                for hotkey_id in tuple(registered_ids):
+                    user32.UnregisterHotKey(None, hotkey_id)
+                    registered_ids.remove(hotkey_id)
+
+            while user32.PeekMessageW(ctypes.byref(message), None, 0, 0, PM_REMOVE):
+                if message.message != WM_HOTKEY:
+                    continue
+
+                callback = callbacks.get(int(message.wParam))
+                if callback and is_minecraft_window_focused():
+                    callback()
+
+            time.sleep(0.05)
+    finally:
+        for hotkey_id in registered_ids:
+            user32.UnregisterHotKey(None, hotkey_id)
 
 print("======================================================")
 print(" POTATOCORE // ADVANCED COMPUTER INSTALLER")
