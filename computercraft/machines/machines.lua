@@ -13,7 +13,7 @@
 local CONFIG = {
     modemSide = "top",
     protocol = "potatocore_botania_machines_v1",
-    updateInterval = 2
+    updateInterval = 0.5
 }
 
 local modemType = peripheral.getType(CONFIG.modemSide)
