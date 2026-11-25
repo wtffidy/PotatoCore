@@ -101,6 +101,7 @@ print("           Use on each machine-side computer")
 print("")
 print("IMPORTANT: Focus the correct Minecraft computer terminal")
 print("           before pressing its install hotkey.")
+print("           If a Lua program is running, press CTRL+C first.")
 print("CTRL + C  |  EXIT")
 print("======================================================")
 
