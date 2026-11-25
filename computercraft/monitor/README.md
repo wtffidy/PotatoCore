@@ -32,6 +32,7 @@ No computer IDs, network counters, peripheral status, uptime, recipe debug paths
 - Missing values display as `N/A`; no active/identified craft displays as `—`.
 - The display uses a two-column, framed layout with the Botania/Mana Core color palette.
 - Cached colored rendering avoids full-screen flashing.
+- Machine transmitters send fresh Block Reader data every 0.5 seconds (up to four updates per second per machine).
 - Raw receiver diagnostics are still written to `botania_received_data.txt` every ten seconds, separately from the display.
 - Diagnostic serialization handles shared or repeated table references safely.
 
