@@ -14,6 +14,8 @@ MANA_COMMANDS = [
 BOTANIA_COMMANDS = [
     "delete botania.lua",
     "wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/botania-production/botania.lua botania.lua",
+    "delete startup.lua",
+    "wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/botania-production/startup.lua startup.lua",
     "botania.lua",
 ]
 
@@ -27,16 +29,14 @@ def run_commands(label, commands):
     try:
         time.sleep(0.2)
 
-        for index, command in enumerate(commands):
+        for command in commands:
             pyautogui.write(command, interval=0)
             pyautogui.press("enter")
 
-            if index == 1:
-                time.sleep(2.5)  # Allow wget to finish.
-            elif index == 0:
+            if command.startswith("wget "):
+                time.sleep(2.5)  # Allow the download to finish.
+            elif command.startswith("delete "):
                 time.sleep(0.2)
-
-        print(f"{label} commands sent.")
     finally:
         run_lock.release()
 
@@ -63,7 +63,7 @@ keyboard.add_hotkey(
 
 print("PotatoCore Advanced Computer Helper running!")
 print("CTRL + T = Delete > Download > Run mana_tx.lua")
-print("CTRL + B = Delete > Download > Run botania.lua")
+print("CTRL + B = Delete > Download > Install startup.lua > Run botania.lua")
 print("CTRL + C = Exit")
 
 keyboard.wait()
