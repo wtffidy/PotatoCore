@@ -74,23 +74,21 @@ Every successful push to `main` builds a versioned JAR and publishes it as a Git
 
 Downloads: https://github.com/wtffidy/PotatoCore/releases/latest
 
-## ComputerCraft mana network
+## ComputerCraft automation network
 
-PotatoCore also includes standalone CC:Tweaked scripts for monitoring multiple Botania Mana Pools over Ender Modems. The transmitter discovers accessible Mana Pool peripherals, and the remote monitor combines data from multiple transmitter computers.
+PotatoCore includes three separate CC:Tweaked deployment roles, installed with FixAdvancedComputers.Py:
 
-See the [ComputerCraft Mana Network guide](computercraft/mana-network/README.md) for the confirmed Project Infinity wiring layout, setup steps, and download commands.
+| Hotkey | Role | Install target |
+| --- | --- | --- |
+| Ctrl+P | Mana Pools | Each Mana Pool transmitter computer |
+| Ctrl+M | Monitor | Dedicated 6x6 production monitor computer |
+| Ctrl+B | Machines | Each machine-side Block Reader computer |
 
-Quick downloads from the CraftOS shell:
+The Mana Pool transmitter feeds the existing 3x3 Mana Core receiver. The expandable production monitor receives telemetry from the separate machine transmitters over Ender Modems. Machine computers do not need a monitor, and the monitor computer does not need direct Block Reader access.
 
-**Mana Pool computer:**
-```text
-wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/mana-network/mana_tx.lua mana_tx.lua
-```
+Guides:
+- [Mana Pool network](computercraft/mana-network/README.md)
+- [Expandable production monitor](computercraft/monitor/README.md)
+- [Machine Block Reader transmitters](computercraft/machines/README.md)
 
-**Remote monitor computer:**
-```text
-wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/mana-network/mana_rx.lua mana_rx.lua
-```
-
-**Updating existing computers:** CC:Tweaked's `wget` does not overwrite an existing file. Run `delete mana_tx.lua` or `delete mana_rx.lua` on the relevant computer before running its download command again.
-
+All three installers download their Lua program and matching startup.lua launcher. Each role autostarts after its computer reboots.
