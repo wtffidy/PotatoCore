@@ -7,13 +7,13 @@ Standalone CC:Tweaked dashboard for a separate 6x6 monitor. It does not replace 
 ### Botania monitor computer
 
 - Advanced Computer connected to the dedicated 6x6 monitor.
-- Wired Modem on the **bottom** side.
+- Wired Modem on the **bottom** side (the dashboard also auto-detects it on any side).
 - Set the monitor to the computer's local peripheral network or connect it to the same wired modem network.
 
 ### Seven machine readers
 
 - One machine-side computer / reader connection per machine.
-- Machine-side wired modems are on the **top** side.
+- Machine-side wired modems are on the **top** side (the dashboard auto-detects this too).
 - Place each Block Reader directly above its machine, facing down.
 - Connect all seven machine-side connections to the monitor computer through one continuous wired modem network.
 
@@ -27,7 +27,7 @@ Machines monitored:
 6. Mechanical Daisy #1
 7. Mechanical Daisy #2
 
-The monitor computer's wired modem is on the bottom; machine-side wired modems are on top. The dashboard discovers Block Reader peripherals and identifies machines from their registry names. It reads block names, block entity data, and block states.
+The monitor computer's wired modem is normally on the bottom; machine-side wired modems are normally on top. The dashboard auto-detects the modem side, so it can run with either physical layout. The dashboard discovers Block Reader peripherals and identifies machines from their registry names. It reads block names, block entity data, and block states.
 
 **Important:** Use wired modems and wired modem cable for the shared peripheral network. An Ender Modem can carry Rednet messages, but it does not expose remote peripherals to peripheral.getNames().
 
