@@ -497,7 +497,7 @@ local function drawCard(canvas, definition, info, x, y, cardWidth, cardHeight)
         writeAt(canvas, right, y + offset, "|", C.border)
     end
 
-    cardLine(1, "CRAFTING", info.craftItem, C.yellow)
+    cardLine(1, "ITEM", info.craftItem, C.yellow)
     cardLine(2, "MANA", info.mana, C.green)
     cardLine(3, "MANA NEEDED", info.manaRequired, C.purple)
 
