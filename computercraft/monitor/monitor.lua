@@ -403,7 +403,10 @@ local function buildMachineInfo(reader)
     end
 
     local data = summarizeData(reader.data)
-    local craftItem = findCraftItem(reader.data) or "—"
+    local detectedCraftItem = findCraftItem(reader.data)
+    local craftItem = detectedCraftItem or "—"
+    local currentCraftMana = detectedCraftItem and data.manaRequired or nil
+
     local function displayMana(value)
         if value == nil then
             return "N/A"
@@ -414,7 +417,7 @@ local function buildMachineInfo(reader)
 
     local manaCurrent = displayMana(data.manaCurrent)
     local manaMaximum = displayMana(data.manaMaximum)
-    local manaRequired = displayMana(data.manaRequired)
+    local manaRequired = displayMana(currentCraftMana)
 
     return {
         craftItem = craftItem,
