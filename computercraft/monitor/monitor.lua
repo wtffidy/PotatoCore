@@ -406,7 +406,7 @@ local function writeRight(canvas, y, x, value, foreground)
     writeAt(canvas, x - #value + 1, y, value, foreground)
 end
 
-local function drawCard(canvas, index, definition, info, x, y, cardWidth)
+local function drawCard(canvas, index, definition, info, x, y, cardWidth, cardHeight)
     local right = x + cardWidth - 1
     local innerWidth = cardWidth - 2
     local heading = fit(string.format("%02d // %s", index, definition.label), innerWidth)
@@ -428,12 +428,23 @@ local function drawCard(canvas, index, definition, info, x, y, cardWidth)
     cardLine(2, "PROCESS  " .. info.craft, C.yellow)
     cardLine(3, "MANA  " .. info.mana, C.green)
 
-    local detail = info.required ~= "Not exposed"
-        and ("REQUIRED  " .. info.required)
-        or ("INPUT / OUTPUT  " .. info.items)
-    cardLine(4, detail, info.required ~= "Not exposed" and C.purple or C.blue)
+    if cardHeight >= 6 then
+        local detail = info.required ~= "Not exposed"
+            and ("REQUIRED  " .. info.required)
+            or ("INPUT / OUTPUT  " .. info.items)
+        cardLine(4, detail, info.required ~= "Not exposed" and C.purple or C.blue)
+    else
+        local compactDetail = "MANA " .. info.mana
+        if info.required ~= "Not exposed" then
+            compactDetail = compactDetail .. " // NEED " .. info.required
+        elseif info.items ~= "Not exposed" then
+            compactDetail = compactDetail .. " // I/O " .. info.items
+        end
+        -- The compact five-row card uses the mana row as its detail summary.
+        cardLine(3, compactDetail, C.green)
+    end
 
-    writeAt(canvas, x, y + 5, "+" .. string.rep("-", innerWidth) .. "+", C.border)
+    writeAt(canvas, x, y + cardHeight - 1, "+" .. string.rep("-", innerWidth) .. "+", C.border)
 end
 
 local function renderCanvas(canvas)
@@ -579,7 +590,7 @@ local function drawDashboard()
     local firstX = 2
     local secondX = firstX + cardWidth + gap
     local firstY = 8
-    local cardHeight = 6
+    local cardHeight = height >= 36 and 6 or 5
     local rowCount = math.ceil(#MACHINES / columns)
     local footerY = height - 1
     local lastCardY = footerY - 1
@@ -593,7 +604,7 @@ local function drawDashboard()
         local x = column == 0 and firstX or secondX
         local y = firstY + row * (cardHeight + rowGap)
 
-        drawCard(canvas, index, definition, buildMachineInfo(assigned[index]), x, y, cardWidth)
+        drawCard(canvas, index, definition, buildMachineInfo(assigned[index]), x, y, cardWidth, cardHeight)
     end
 
     local uptime = formatDuration((os.epoch("utc") - startedAt) / 1000)
