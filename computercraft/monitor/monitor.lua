@@ -12,7 +12,7 @@
 
 local CONFIG = {
     modemSide = "bottom",
-    textScale = 0.5,
+    textScale = 0.8,
     protocol = "potatocore_botania_machines_v1",
     sourceTimeout = 8,
     receiveInterval = 0.5,
@@ -31,12 +31,22 @@ if not monitor then
 end
 
 rednet.open(CONFIG.modemSide)
-monitor.setTextScale(CONFIG.textScale)
+local width, height
 
-local width, height = monitor.getSize()
+-- Prefer the Mana Core's readable scale, then step down only when needed.
+for _, scale in ipairs({ 0.8, 0.7, 0.5 }) do
+    monitor.setTextScale(scale)
+    width, height = monitor.getSize()
+
+    if width >= 54 and height >= 32 then
+        CONFIG.textScale = scale
+        break
+    end
+end
+
 if width < 54 or height < 32 then
     error(
-        "Monitor is too small for the production dashboard. Detected "
+        "Monitor is too small for the Botania dashboard. Detected "
         .. width .. "x" .. height .. "; need at least 54x32."
     )
 end
@@ -426,9 +436,9 @@ local function drawCard(canvas, index, definition, info, x, y, cardWidth, cardHe
 
     cardLine(1, info.status .. "  //  " .. info.computer, info.statusColour)
     cardLine(2, "PROCESS  " .. info.craft, C.yellow)
-    cardLine(3, "MANA  " .. info.mana, C.green)
 
     if cardHeight >= 6 then
+        cardLine(3, "MANA  " .. info.mana, C.green)
         local detail = info.required ~= "Not exposed"
             and ("REQUIRED  " .. info.required)
             or ("INPUT / OUTPUT  " .. info.items)
@@ -440,7 +450,6 @@ local function drawCard(canvas, index, definition, info, x, y, cardWidth, cardHe
         elseif info.items ~= "Not exposed" then
             compactDetail = compactDetail .. " // I/O " .. info.items
         end
-        -- The compact five-row card uses the mana row as its detail summary.
         cardLine(3, compactDetail, C.green)
     end
 
@@ -565,7 +574,7 @@ local function drawDashboard()
         systemState = "ALL SYSTEMS ONLINE"
         systemColour = C.green
     elseif online > 0 then
-        systemState = "PRODUCTION NETWORK PARTIAL"
+        systemState = "NETWORK PARTIAL"
         systemColour = C.orange
     end
 
@@ -576,7 +585,7 @@ local function drawDashboard()
     writeAt(canvas, 1, 4, "+" .. string.rep("=", width - 2) .. "+", C.border)
 
     writeAt(canvas, 3, 5, "[SYS] " .. systemState, systemColour)
-    writeRight(canvas, 5, width - 2, "[MACHINES] " .. online .. "/" .. #MACHINES
+    writeRight(canvas, 5, width - 2, "[M] " .. online .. "/" .. #MACHINES
         .. "  [TX] " .. activeComputers, C.cyan)
 
     writeAt(canvas, 1, 6, string.rep("-", width), C.border)
@@ -608,9 +617,8 @@ local function drawDashboard()
     end
 
     local uptime = formatDuration((os.epoch("utc") - startedAt) / 1000)
-    writeAt(canvas, 3, footerY, "LINKS " .. online .. "/" .. #MACHINES
-        .. "  //  UPTIME " .. uptime, C.blue)
-    writeRight(canvas, footerY, width - 2, "POTATOCORE // ACTIVE", C.green)
+    writeAt(canvas, 3, footerY, "MACHINES " .. online .. "/" .. #MACHINES .. "  //  UP " .. uptime, C.blue)
+    writeRight(canvas, footerY, width - 2, "BOTANIA // ACTIVE", C.green)
     writeAt(canvas, 1, height, "+" .. string.rep("=", width - 2) .. "+", C.border)
 
     renderCanvas(canvas)
