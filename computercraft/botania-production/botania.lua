@@ -59,13 +59,13 @@ local lastDiagnostic = 0
 local startedAt = os.epoch("utc")
 
 local MACHINES = {
-    { id = "industrial_agglomeration_factory", label = "INDUSTRIAL AGGLOMERATION FACTORY" },
-    { id = "alfheim_market", label = "ALFHEIM MARKET" },
-    { id = "mechanical_mana_pool", label = "MECHANICAL MANA POOL" },
-    { id = "mechanical_runic_altar", label = "MECHANICAL RUNIC ALTAR" },
-    { id = "mechanical_apothecary", label = "MECHANICAL APOTHECARY" },
-    { id = "mechanical_daisy", label = "MECHANICAL DAISY // 01" },
-    { id = "mechanical_daisy", label = "MECHANICAL DAISY // 02" }
+    { id = "industrial_agglomeration_factory", label = "IND. AGGLOM." },
+    { id = "alfheim_market", label = "ALFHEIM MKT" },
+    { id = "mechanical_mana_pool", label = "MANA POOL" },
+    { id = "mechanical_runic_altar", label = "RUNIC ALTAR" },
+    { id = "mechanical_apothecary", label = "APOTHECARY" },
+    { id = "mechanical_daisy", label = "DAISY #1" },
+    { id = "mechanical_daisy", label = "DAISY #2" }
 }
 
 monitor.setBackgroundColor(C.background)
@@ -557,9 +557,9 @@ local function drawDashboard()
     writeCentered(canvas, 3, "PRODUCTION & CRAFTING TELEMETRY", C.blue)
     writeAt(canvas, 1, 4, "+" .. string.rep("=", width - 2) .. "+", C.border)
 
-    writeAt(canvas, 3, 5, "[SYS] PRODUCTION LINE " .. (online == 7 and "ONLINE" or "PARTIAL"),
+    writeAt(canvas, 3, 5, "[SYS] " .. (online == 7 and "ONLINE" or "PARTIAL"),
         online == 7 and C.green or C.orange)
-    writeRight(canvas, 5, width - 3, "[MACHINES] " .. online .. "/7  [READERS] " .. #readers, C.cyan)
+    writeRight(canvas, 5, width - 3, "[M] " .. online .. "/7  [R] " .. #readers, C.cyan)
 
     local columns = 2
     local gap = 2
