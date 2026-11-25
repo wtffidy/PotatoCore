@@ -1,12 +1,12 @@
 # PotatoCore Monitor
 
-Expandable receiver and dashboard for the dedicated Botania production monitor.
+Central receiver and dashboard for the Botania production network.
 
 ## Hardware
 
 - Ender Modem on the **bottom** side.
 - Monitor attached locally or exposed through the computer's wired monitor network.
-- One or more machine-side computers running the PotatoCore machine transmitter.
+- Machine-side computers running the PotatoCore Block Reader transmitter.
 
 ## Install
 
@@ -18,17 +18,23 @@ Expandable receiver and dashboard for the dedicated Botania production monitor.
 
 Or focus the dedicated monitor computer's CraftOS terminal and press **Ctrl+M** in FixAdvancedComputers.Py.
 
-## Dashboard
+## Dashboard design
 
-- Uses a two-column layout so machine names and telemetry are easier to read on the 6x6 display.
-- Shows all seven configured machines in compact six-line cards.
-- Separates machine link status from recipe, mana, requirement, and item telemetry.
-- Uses **OFFLINE** for missing readers and **NO DATA** when a reader is present but does not expose a data table.
-- Displays unavailable values as **Not exposed** / **No recipe data**; missing telemetry is never represented as zero.
-- Uses cached colored rendering to prevent flashing.
-- Writes raw receiver data to `botania_received_data.txt` every ten seconds for troubleshooting.
+The Botania display follows the same visual system as the Mana Core dashboard:
 
-The receiver listens on `potatocore_botania_machines_v1`. It does not replace the existing 3x3 Mana Core receiver in `computercraft/mana-network/mana_rx.lua`.
+- Larger adaptive text scale, preferring 0.8 and falling back to 0.7 / 0.5 when the monitor needs more room.
+- Framed machine cards with cyan / purple borders and color-coded status.
+- A clear system header, network status, machine count, and transmitter count.
+- Two-column production module layout for all seven machines.
+- Machine cards show status, process / recipe, mana, and required items or input/output telemetry.
+- Compact card layout is used on shorter monitors.
+- Cached colored rendering prevents full-screen flashing.
+- Raw receiver diagnostics are written to `botania_received_data.txt` every ten seconds.
+- Diagnostic serialization handles shared or repeated table references without crashing.
+
+Missing telemetry is shown as **Not exposed** or **No recipe data**, never as zero.
+
+The receiver listens on `potatocore_botania_machines_v1`. It does not replace the existing Mana Core receiver in `computercraft/mana-network/mana_rx.lua`.
 
 ## Network
 
