@@ -188,6 +188,8 @@ local function summarizeData(data)
                 elseif normalizedKey == "manacost" or normalizedKey == "manarequired"
                     or normalizedKey == "requiredmana" or normalizedKey == "neededmana" then
                     result.manaRequired = numericValue
+                elseif normalizedKey == "maxprogress" then
+                    result.maxProgress = numericValue
                 end
             end
         end
@@ -197,13 +199,10 @@ local function summarizeData(data)
     return result
 end
 
-local function findCraftItem(data)
+local function findCraftItem(data, machineId)
     if type(data) ~= "table" then
         return nil
     end
-
-    local candidates = {}
-    local seen = {}
 
     local function normalizeItem(value)
         local item = tostring(value or ""):gsub("^%s+", ""):gsub("%s+$", "")
@@ -224,12 +223,75 @@ local function findCraftItem(data)
         return item
     end
 
+    -- Botanical Machinery stores finished products in output-only inventory
+    -- slots. The Block Reader exposes those stacks under inv.Items.
+    local outputSlots = {
+        industrial_agglomeration_factory = { [3] = true },
+        alfheim_market = { [4] = true },
+        mechanical_mana_pool = { [2] = true },
+        mechanical_runic_altar = function(slot)
+            return slot >= 17 and slot <= 32
+        end,
+        mechanical_apothecary = function(slot)
+            return slot >= 17 and slot <= 20
+        end,
+        mechanical_daisy = function(slot)
+            return slot >= 0 and slot <= 7
+        end
+    }
+
+    local function getStackItem(stack)
+        if type(stack) ~= "table" then
+            return nil
+        end
+
+        for _, key in ipairs({
+            "id", "Id", "name", "Name",
+            "registryName", "RegistryName",
+            "identifier", "Identifier"
+        }) do
+            if type(stack[key]) == "string" then
+                return normalizeItem(stack[key])
+            end
+        end
+
+        local nestedItem = stack.item or stack.Item
+        if type(nestedItem) == "table" then
+            return getStackItem(nestedItem)
+        end
+
+        return nil
+    end
+
+    local candidates = {}
+    local active = {}
+    local allowedSlots = outputSlots[machineId]
+
+    local function isOutputSlot(slot)
+        if type(allowedSlots) == "function" then
+            return allowedSlots(slot)
+        end
+
+        return type(allowedSlots) == "table" and allowedSlots[slot] == true
+    end
+
     local function walk(node, path, depth)
-        if type(node) ~= "table" or depth > 8 or seen[node] then
+        if type(node) ~= "table" or depth > 10 or active[node] then
             return
         end
 
-        seen[node] = true
+        active[node] = true
+
+        local slot = tonumber(node.Slot or node.slot)
+        if slot ~= nil and isOutputSlot(slot) then
+            local item = getStackItem(node)
+            if item then
+                candidates[#candidates + 1] = {
+                    item = item,
+                    score = 200 - slot
+                }
+            end
+        end
 
         local keys = {}
         for key in pairs(node) do
@@ -245,57 +307,73 @@ local function findCraftItem(data)
             local normalizedKey = keyText:gsub("[^%w]", "")
             local currentPath = path == "" and keyText or path .. "." .. keyText
             local lowerPath = currentPath:lower()
-            local recipePath = lowerPath:find("output", 1, true)
-                or lowerPath:find("result", 1, true)
-                or lowerPath:find("recipe", 1, true)
-                or lowerPath:find("craft", 1, true)
-                or lowerPath:find("product", 1, true)
+
+            if normalizedKey == "currentoutput" and type(value) == "table" then
+                local item = getStackItem(value)
+                if item then
+                    candidates[#candidates + 1] = {
+                        item = item,
+                        score = 300
+                    }
+                end
+            end
 
             if type(value) == "table" then
                 walk(value, currentPath, depth + 1)
-            elseif type(value) == "string" and recipePath then
-                local explicitItemField = normalizedKey:find("item", 1, true)
-                    or normalizedKey == "output"
-                    or normalizedKey == "result"
-                    or normalizedKey == "crafted"
-                    or normalizedKey == "product"
-                    or normalizedKey == "registryname"
-                local outputPath = lowerPath:find("output", 1, true)
+            elseif type(value) == "string" then
+                local recipePath = lowerPath:find("output", 1, true)
                     or lowerPath:find("result", 1, true)
-                    or lowerPath:find("crafted", 1, true)
+                    or lowerPath:find("recipe", 1, true)
+                    or lowerPath:find("craft", 1, true)
                     or lowerPath:find("product", 1, true)
-                local itemField = explicitItemField
-                    or (outputPath and (normalizedKey == "id" or normalizedKey:find("name", 1, true)))
 
-                if itemField then
-                    local item = normalizeItem(value)
-                    if item then
-                        local score = 0
-                        if lowerPath:find("output", 1, true) then
-                            score = score + 100
-                        elseif lowerPath:find("result", 1, true) then
-                            score = score + 90
-                        elseif lowerPath:find("recipe", 1, true) then
-                            score = score + 80
-                        elseif lowerPath:find("craft", 1, true) then
-                            score = score + 70
+                if recipePath then
+                    local explicitItemField = normalizedKey:find("item", 1, true)
+                        or normalizedKey == "output"
+                        or normalizedKey == "result"
+                        or normalizedKey == "crafted"
+                        or normalizedKey == "product"
+                        or normalizedKey == "registryname"
+                    local outputPath = lowerPath:find("output", 1, true)
+                        or lowerPath:find("result", 1, true)
+                        or lowerPath:find("crafted", 1, true)
+                        or lowerPath:find("product", 1, true)
+                    local itemField = explicitItemField
+                        or (outputPath and (normalizedKey == "id" or normalizedKey:find("name", 1, true)))
+
+                    if itemField then
+                        local item = normalizeItem(value)
+                        if item then
+                            local score = 0
+                            if lowerPath:find("output", 1, true) then
+                                score = 100
+                            elseif lowerPath:find("result", 1, true) then
+                                score = 90
+                            elseif lowerPath:find("recipe", 1, true) then
+                                score = 80
+                            elseif lowerPath:find("craft", 1, true) then
+                                score = 70
+                            end
+
+                            if normalizedKey:find("item", 1, true) then
+                                score = score + 20
+                            end
+
+                            candidates[#candidates + 1] = {
+                                item = item,
+                                score = score
+                            }
                         end
-
-                        if normalizedKey:find("item", 1, true) then
-                            score = score + 20
-                        end
-
-                        candidates[#candidates + 1] = {
-                            item = item,
-                            score = score
-                        }
                     end
                 end
             end
         end
+
+        active[node] = nil
     end
 
     walk(data, "", 0)
+
     table.sort(candidates, function(a, b)
         if a.score == b.score then
             return a.item < b.item
@@ -403,8 +481,20 @@ local function buildMachineInfo(reader)
     end
 
     local data = summarizeData(reader.data)
-    local detectedCraftItem = findCraftItem(reader.data)
+    local machineId = classify(reader.block)
+    local detectedCraftItem = findCraftItem(reader.data, machineId)
     local craftItem = detectedCraftItem or "NO ITEM"
+
+    -- WorkingTile stores the active recipe's mana cost in maxProgress.
+    -- This is mana usage for the factory and altar, not ticks for other machines.
+    if data.manaRequired == nil
+        and (machineId == "industrial_agglomeration_factory" or machineId == "mechanical_runic_altar") then
+        local maxProgress = tonumber(data.maxProgress)
+        if maxProgress and maxProgress > 0 then
+            data.manaRequired = maxProgress
+        end
+    end
+
     local currentCraftMana = detectedCraftItem and data.manaRequired or nil
 
     local function displayMana(value)
