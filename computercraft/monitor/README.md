@@ -1,12 +1,12 @@
 # PotatoCore Monitor
 
-This is the expandable receiver and dashboard program for the dedicated Botania 6x6 monitor.
+Expandable receiver and dashboard for the dedicated Botania production monitor.
 
 ## Hardware
 
 - Ender Modem on the **bottom** side.
-- Monitor attached locally or exposed through the computer's local wired monitor network.
-- Receives machine telemetry from all machine-side computers.
+- Monitor attached locally or exposed through the computer's wired monitor network.
+- One or more machine-side computers running the PotatoCore machine transmitter.
 
 ## Install
 
@@ -18,21 +18,18 @@ This is the expandable receiver and dashboard program for the dedicated Botania 
 
 Or focus the dedicated monitor computer's CraftOS terminal and press **Ctrl+M** in FixAdvancedComputers.Py.
 
-## Expandable screen architecture
+## Dashboard
 
-monitor.lua is the central receiver and display entry point. Future PotatoCore screens should be added here as additional panels / views while keeping device-side transmitters separate.
+- Uses a two-column layout so machine names and telemetry are easier to read on the 6x6 display.
+- Shows all seven configured machines in compact six-line cards.
+- Separates machine link status from recipe, mana, requirement, and item telemetry.
+- Uses **OFFLINE** for missing readers and **NO DATA** when a reader is present but does not expose a data table.
+- Displays unavailable values as **Not exposed** / **No recipe data**; missing telemetry is never represented as zero.
+- Uses cached colored rendering to prevent flashing.
+- Writes raw receiver data to `botania_received_data.txt` every ten seconds for troubleshooting.
 
-Current view:
-- Seven Botania machine cards.
-- Machine online / offline status.
-- Crafting / recipe fields where exposed.
-- Mana and mana-required fields where exposed.
-- Inputs / outputs where exposed.
-- Cached colored monitor rendering to prevent flashing.
-- Raw receiver data saved to botania_received_data.txt every ten seconds.
+The receiver listens on `potatocore_botania_machines_v1`. It does not replace the existing 3x3 Mana Core receiver in `computercraft/mana-network/mana_rx.lua`.
 
-The program listens on protocol potatocore_botania_machines_v1. It does not replace the existing 3x3 Mana Core receiver in computercraft/mana-network/mana_rx.lua.
-
-## Network distinction
+## Network
 
 The monitor computer uses an Ender Modem on the bottom. Each machine computer uses an Ender Modem on the top. Ender Modems exchange Rednet messages; they do not share Block Reader peripherals across computers.
