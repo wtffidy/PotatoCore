@@ -33,10 +33,10 @@ end
 monitor.setTextScale(CONFIG.textScale)
 
 local width, height = monitor.getSize()
-if width < 70 or height < 40 then
+if width < 70 or height < 49 then
     error(
         "Botania display needs more space. Detected "
-        .. width .. "x" .. height .. "; need at least 70x40."
+        .. width .. "x" .. height .. "; need at least 70x49."
     )
 end
 
