@@ -5,21 +5,31 @@ import keyboard
 import pyautogui
 
 
-# Ctrl+T: install/run mana transmitter on the Mana Pool computer.
-MANA_TX_COMMANDS = [
+# Ctrl+P: install the Mana Pool transmitter on a Mana Pool computer.
+MANA_POOL_COMMANDS = [
     "delete mana_tx.lua",
     "wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/mana-network/mana_tx.lua mana_tx.lua",
+    "delete startup.lua",
+    "wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/mana-network/startup_tx.lua startup.lua",
     "mana_tx.lua",
 ]
 
-# Ctrl+B: install/run the Botania dashboard on the dedicated 6x6 monitor computer.
-# Its Lua program auto-detects the wired modem side (monitor PC bottom, machine PCs top).
-BOTANIA_MONITOR_COMMANDS = [
-    "delete botania.lua",
-    "wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/botania-production/botania.lua botania.lua",
+# Ctrl+M: install the expandable receiver/dashboard on the dedicated monitor computer.
+MONITOR_COMMANDS = [
+    "delete monitor.lua",
+    "wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/monitor/monitor.lua monitor.lua",
     "delete startup.lua",
-    "wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/botania-production/startup.lua startup.lua",
-    "botania.lua",
+    "wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/monitor/startup.lua startup.lua",
+    "monitor.lua",
+]
+
+# Ctrl+B: install the Block Reader transmitter on each machine-side computer.
+MACHINE_COMMANDS = [
+    "delete machines.lua",
+    "wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/machines/machines.lua machines.lua",
+    "delete startup.lua",
+    "wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/machines/startup.lua startup.lua",
+    "machines.lua",
 ]
 
 run_lock = threading.Lock()
@@ -43,7 +53,7 @@ def run_commands(label, commands):
             elif command.startswith("delete "):
                 time.sleep(0.2)
 
-        print(f"[{label}] Commands sent.")
+        print(f"[{label}] Install commands sent.")
     finally:
         run_lock.release()
 
@@ -57,32 +67,41 @@ def start_sequence(label, commands):
 
 
 keyboard.add_hotkey(
-    "ctrl+t",
-    lambda: start_sequence("CTRL+T | MANA TX", MANA_TX_COMMANDS),
+    "ctrl+p",
+    lambda: start_sequence("CTRL+P | MANA POOLS", MANA_POOL_COMMANDS),
+    suppress=True
+)
+
+keyboard.add_hotkey(
+    "ctrl+m",
+    lambda: start_sequence("CTRL+M | PRODUCTION MONITOR", MONITOR_COMMANDS),
     suppress=True
 )
 
 keyboard.add_hotkey(
     "ctrl+b",
-    lambda: start_sequence("CTRL+B | BOTANIA 6x6 MONITOR", BOTANIA_MONITOR_COMMANDS),
+    lambda: start_sequence("CTRL+B | MACHINES", MACHINE_COMMANDS),
     suppress=True
 )
 
-print("==================================================")
+print("======================================================")
 print(" POTATOCORE // ADVANCED COMPUTER INSTALLER")
-print("==================================================")
-print("CTRL + T  |  MANA TX")
-print("           Install / update the Mana Pool transmitter")
+print("======================================================")
+print("CTRL + P  |  MANA POOLS")
+print("           Install / update Mana Pool transmitter")
+print("           Use on each Mana Pool transmitter computer")
 print("")
-print("CTRL + B  |  BOTANIA PRODUCTION MONITOR")
-print("           Install / update the dedicated 6x6 dashboard")
-print("           Run with the Minecraft terminal focused")
+print("CTRL + M  |  MONITOR")
+print("           Install / update expandable monitor receiver")
+print("           Use on the dedicated 6x6 monitor computer")
 print("")
-print("NOTE: Ctrl+B is for the Botania monitor computer.")
-print("      Its modem is auto-detected; monitor PC bottom,")
-print("      machine-side PCs top.")
+print("CTRL + B  |  MACHINES")
+print("           Install / update Block Reader transmitter")
+print("           Use on each machine-side computer")
 print("")
+print("IMPORTANT: Focus the correct Minecraft computer terminal")
+print("           before pressing its install hotkey.")
 print("CTRL + C  |  EXIT")
-print("==================================================")
+print("======================================================")
 
 keyboard.wait()
