@@ -435,6 +435,53 @@ local function renderCanvas(canvas)
     end
 end
 
+-- Block Reader peripheral data can contain shared table references.
+-- textutils.serialize rejects repeated references, so diagnostics use a
+-- defensive formatter that marks repeats and limits recursion/output size.
+local function diagnosticSerialize(value, seen, depth)
+    local valueType = type(value)
+
+    if valueType == "string" then
+        return string.format("%q", value)
+    elseif valueType == "number" or valueType == "boolean" or valueType == "nil" then
+        return tostring(value)
+    elseif valueType ~= "table" then
+        return string.format("<%s>", valueType)
+    end
+
+    seen = seen or {}
+    depth = depth or 0
+
+    if seen[value] then
+        return '"<repeated table reference>"'
+    end
+
+    if depth >= 8 then
+        return '"<maximum diagnostic depth>"'
+    end
+
+    seen[value] = true
+
+    local entries = {}
+    local count = 0
+
+    for key, entry in pairs(value) do
+        count = count + 1
+
+        if count > 128 then
+            entries[#entries + 1] = '"<additional entries omitted>"'
+            break
+        end
+
+        entries[#entries + 1] = "["
+            .. diagnosticSerialize(key, seen, depth + 1)
+            .. "] = "
+            .. diagnosticSerialize(entry, seen, depth + 1)
+    end
+
+    return "{ " .. table.concat(entries, ", ") .. " }"
+end
+
 local function saveDiagnostics(readers, assigned)
     local now = os.epoch("utc")
     if now - lastDiagnostic < CONFIG.diagnosticInterval * 1000 then
@@ -454,11 +501,11 @@ local function saveDiagnostics(readers, assigned)
     file.writeLine("")
 
     for _, reader in ipairs(readers) do
-        file.writeLine("Computer: " .. reader.computer)
+        file.writeLine("Computer: " .. tostring(reader.computer))
         file.writeLine("Reader: " .. tostring(reader.reader))
         file.writeLine("Block: " .. tostring(reader.block))
-        file.writeLine("States: " .. textutils.serialize(reader.states))
-        file.writeLine("Data: " .. textutils.serialize(reader.data))
+        file.writeLine("States: " .. diagnosticSerialize(reader.states))
+        file.writeLine("Data: " .. diagnosticSerialize(reader.data))
         file.writeLine("")
     end
 
