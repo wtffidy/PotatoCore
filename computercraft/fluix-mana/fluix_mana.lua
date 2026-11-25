@@ -11,7 +11,6 @@
 -- ============================================================
 
 local CONFIG = {
-    monitorSide = "top",
     poolName = nil, -- Set to a peripheral name to force a specific pool.
     sampleInterval = 0.5,
     smoothingSamples = 4,
@@ -25,7 +24,6 @@ local COLORS = {
     purple = colors.purple,
     cyan = colors.cyan,
     green = colors.lime,
-    darkGreen = colors.green,
     red = colors.red
 }
 
@@ -49,9 +47,9 @@ local function findManaPool()
     return nil, nil
 end
 
-local monitor = peripheral.wrap(CONFIG.monitorSide)
+local monitor, monitorName = peripheral.find("monitor")
 if not monitor or type(monitor.setTextScale) ~= "function" then
-    error("Monitor not found on " .. CONFIG.monitorSide:upper() .. ".")
+    error("No directly connected monitor found.")
 end
 
 monitor.setTextScale(CONFIG.textScale)
@@ -66,7 +64,6 @@ if type(pool.getMana) ~= "function" then
 end
 
 local width, height = monitor.getSize()
-local previousRows = {}
 local samples = {}
 local sampleIndex = 1
 local sampleCount = 0
@@ -217,7 +214,7 @@ print("========================================")
 print(" POTATOCORE // FLUIX MANA MONITOR")
 print("========================================")
 print("Pool        : " .. tostring(poolName))
-print("Monitor     : " .. width .. "x" .. height)
+print("Monitor     : " .. tostring(monitorName) .. " (" .. width .. "x" .. height .. ")")
 print("Modem       : NOT REQUIRED")
 print("Status      : ONLINE")
 print("----------------------------------------")
