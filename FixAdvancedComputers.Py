@@ -42,7 +42,7 @@ MACHINE_COMMANDS = [
     "machines.lua",
 ]
 
-TARGET_WINDOW_HINTS = ("minecraft",)
+TARGET_WINDOW_HINTS = ("minecraft", "project infinity")
 COMMAND_INTERVAL = 0.015
 DELETE_DELAY = 0.35
 DOWNLOAD_DELAY = 3.0
