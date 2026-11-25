@@ -1,70 +1,9 @@
-# PotatoCore Botania Production Line
+# Botania Production Line (superseded)
 
-Standalone CC:Tweaked dashboard for a separate 6x6 monitor. It does not replace or modify the existing Mana Core receiver or its 3x3 pool array.
+The original botania.lua combined Block Reader scanning and monitor rendering on one computer. That architecture was incorrect for the Ender Modem layout and has been replaced by three separate roles:
 
-## Hardware
+1. Mana Pools: computercraft/mana-network/mana_tx.lua (Ctrl+P)
+2. Monitor: computercraft/monitor/monitor.lua (Ctrl+M)
+3. Machines: computercraft/machines/machines.lua (Ctrl+B)
 
-### Botania monitor computer
-
-- Advanced Computer connected to the dedicated 6x6 monitor.
-- Wired Modem on the **bottom** side (the dashboard also auto-detects it on any side).
-- Set the monitor to the computer's local peripheral network or connect it to the same wired modem network.
-
-### Seven machine readers
-
-- One machine-side computer / reader connection per machine.
-- Machine-side wired modems are on the **top** side (the dashboard auto-detects this too).
-- Place each Block Reader directly above its machine, facing down.
-- Connect all seven machine-side connections to the monitor computer through one continuous wired modem network.
-
-Machines monitored:
-
-1. Industrial Agglomeration Factory
-2. Alfheim Market
-3. Mechanical Mana Pool
-4. Mechanical Runic Altar
-5. Mechanical Apothecary
-6. Mechanical Daisy #1
-7. Mechanical Daisy #2
-
-The monitor computer's wired modem is normally on the bottom; machine-side wired modems are normally on top. The dashboard auto-detects the modem side, so it can run with either physical layout. The dashboard discovers Block Reader peripherals and identifies machines from their registry names. It reads block names, block entity data, and block states.
-
-**Important:** Use wired modems and wired modem cable for the shared peripheral network. An Ender Modem can carry Rednet messages, but it does not expose remote peripherals to peripheral.getNames().
-
-## Install
-
-Run these commands on the Advanced Computer attached to the new Botania 6x6 monitor:
-
-    delete botania.lua
-    wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/botania-production/botania.lua botania.lua
-    delete startup.lua
-    wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/botania-production/startup.lua startup.lua
-    botania.lua
-
-The startup.lua launcher runs botania.lua automatically whenever the monitor computer boots. The FixAdvancedComputers.Py helper keeps the existing Mana TX hotkey (Ctrl+T) and adds Ctrl+B to download both Botania files, install startup.lua, and launch the dashboard.
-
-## Dashboard
-
-- Coloured Potatocore-style header and status indicators.
-- Seven individual machine cards, including separate Daisy panels.
-- Recipe / crafting fields, where exposed by block data.
-- Mana storage and maximum, where exposed by block data.
-- Mana requirement fields, where exposed by block data.
-- Mana bars when both current and maximum values are available.
-- Cached coloured monitor rows to prevent flashing.
-
-Unknown recipe and mana values are displayed as unavailable rather than guessed.
-
-## Diagnostics
-
-The dashboard writes botania_data.txt with the raw block data and block states from every detected reader. The log refreshes every 10 seconds.
-
-Send that file back for machine-specific field mapping. Some machines may not expose their active recipe or exact mana requirement through Block Reader data, so the diagnostic dump is needed before those fields can be decoded accurately.
-
-## Notes
-
-- Install botania.lua and startup.lua on the dedicated monitor computer only.
-- startup.lua automatically launches botania.lua after a restart.
-- The seven Block Readers do not need their own dashboard computers or copies of this program.
-- The seven readers and monitor computer must be on the same wired modem peripheral network.
-- The existing computercraft/mana-network/mana_rx.lua and mana_tx.lua files are unchanged.
+Use the new role-specific directories and READMEs. Do not install the legacy botania.lua or startup.lua from this directory.
