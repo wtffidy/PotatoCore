@@ -282,6 +282,17 @@ local function saveDiagnostics(readers, assigned)
     file.writeLine("Readers detected: " .. #readers)
     file.writeLine("")
 
+    file.writeLine("ALL DETECTED READERS")
+    for _, reader in ipairs(readers) do
+        file.writeLine("Reader: " .. reader.name)
+        file.writeLine("Block: " .. tostring(reader.block))
+        file.writeLine("Block states: " .. textutils.serialize(reader.states))
+        file.writeLine("Block data:")
+        file.writeLine(textutils.serialize(reader.data))
+        file.writeLine("")
+    end
+
+    file.writeLine("EXPECTED MACHINE ASSIGNMENTS")
     for index, definition in ipairs(MACHINES) do
         local reader = assigned[index]
         file.writeLine(definition.label)
