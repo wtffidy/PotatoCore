@@ -13,34 +13,35 @@ except ImportError as exc:
     ) from exc
 
 
+RAW_BASE_URL = "https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft"
+
 # Ctrl+P: install the Mana Pool transmitter on a Mana Pool computer.
 MANA_POOL_COMMANDS = [
     "delete mana_tx.lua",
-    "wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/mana-network/mana_tx.lua mana_tx.lua",
+    f"wget {RAW_BASE_URL}/mana-network/mana_tx.lua mana_tx.lua",
     "delete startup.lua",
-    "wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/mana-network/startup_tx.lua startup.lua",
+    f"wget {RAW_BASE_URL}/mana-network/startup_tx.lua startup.lua",
     "mana_tx.lua",
 ]
 
 # Ctrl+M: install the expandable receiver/dashboard on the dedicated monitor computer.
 MONITOR_COMMANDS = [
     "delete monitor.lua",
-    "wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/monitor/monitor.lua monitor.lua",
+    f"wget {RAW_BASE_URL}/monitor/monitor.lua monitor.lua",
     "delete startup.lua",
-    "wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/monitor/startup.lua startup.lua",
+    f"wget {RAW_BASE_URL}/monitor/startup.lua startup.lua",
     "monitor.lua",
 ]
 
 # Ctrl+B: install the Block Reader transmitter on each machine-side computer.
 MACHINE_COMMANDS = [
     "delete machines.lua",
-    "wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/machines/machines.lua machines.lua",
+    f"wget {RAW_BASE_URL}/machines/machines.lua machines.lua",
     "delete startup.lua",
-    "wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/machines/startup.lua startup.lua",
+    f"wget {RAW_BASE_URL}/machines/startup.lua startup.lua",
     "machines.lua",
 ]
 
-RAW_BASE_URL = "https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft"
 TARGET_WINDOW_HINTS = ("minecraft",)
 COMMAND_INTERVAL = 0.015
 DELETE_DELAY = 0.35
