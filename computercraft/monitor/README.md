@@ -1,6 +1,6 @@
 # PotatoCore Monitor
 
-Central receiver and Botania production dashboard, styled to match the Mana Core display.
+Minimal Botania production display for the dedicated monitor computer.
 
 ## Hardware
 
@@ -18,19 +18,24 @@ Central receiver and Botania production dashboard, styled to match the Mana Core
 
 Or focus the dedicated monitor computer's CraftOS terminal and press **Ctrl+M** in FixAdvancedComputers.Py.
 
-## Dashboard
+## Display
 
-- Reactor-style title, system health, module count, and transmitter count.
-- Larger adaptive text scale: prefers 0.8, then falls back to 0.7 / 0.5 when the connected monitor needs more room.
-- Two-column, framed production cards using the Mana Core's cyan / blue / purple visual language.
-- Card height adapts to the available monitor space, showing more telemetry on larger displays.
-- Machine status, process / recipe, mana storage meter (when exposed), mana amount, required amount, and input/output details.
-- Missing telemetry is shown as **Not exposed** or **No recipe data**, never as zero.
+Each of the seven machine cards shows only:
+
+1. The item currently being crafted, when exposed by the Block Reader.
+2. Stored mana / maximum mana.
+3. Mana required for the current craft.
+
+No computer IDs, network counters, peripheral status, uptime, recipe debug paths, or inventory diagnostics appear on the monitor.
+
+- Mana values use full comma-separated numbers when the display is wide enough and compact values on narrower displays.
+- Missing values display as `N/A`; no active/identified craft displays as `—`.
+- The display uses a two-column, framed layout with the Botania/Mana Core color palette.
 - Cached colored rendering avoids full-screen flashing.
-- Raw receiver diagnostics are written to `botania_received_data.txt` every ten seconds.
+- Raw receiver diagnostics are still written to `botania_received_data.txt` every ten seconds, separately from the display.
 - Diagnostic serialization handles shared or repeated table references safely.
 
-The receiver listens on `potatocore_botania_machines_v1`. It does not replace the existing Mana Core receiver in `computercraft/mana-network/mana_rx.lua`.
+The receiver listens on `potatocore_botania_machines_v1`. It does not replace the Mana Core receiver in `computercraft/mana-network/mana_rx.lua`.
 
 ## Network
 
