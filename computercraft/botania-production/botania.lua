@@ -33,10 +33,10 @@ end
 monitor.setTextScale(CONFIG.textScale)
 
 local width, height = monitor.getSize()
-if width < 70 or height < 49 then
+if width < 32 or height < 35 then
     error(
         "Botania display needs more space. Detected "
-        .. width .. "x" .. height .. "; need at least 70x49."
+        .. width .. "x" .. height .. "; need at least 32x35."
     )
 end
 
@@ -427,58 +427,55 @@ local function drawCard(canvas, index, definition, info, x, y, cardWidth)
     writeAt(canvas, right, y + 1, "|", C.border)
 
     writeAt(canvas, x, y + 2, "|", C.border)
-    writeAt(canvas, x + 1, y + 2, fit("READER: " .. info.reader, innerWidth), C.muted)
+    writeAt(canvas, x + 1, y + 2, fit("CRAFT: " .. info.process, innerWidth), C.yellow)
     writeAt(canvas, right, y + 2, "|", C.border)
 
-    writeAt(canvas, x, y + 3, "|", C.border)
-    writeAt(canvas, x + 1, y + 3, fit("CRAFTING: " .. info.process, innerWidth), C.yellow)
-    writeAt(canvas, right, y + 3, "|", C.border)
-
     local manaText = "MANA: " .. info.mana
+    local percentage = nil
+
     if info.manaCurrent and info.manaMaximum then
-        local percentage = info.manaMaximum > 0
+        percentage = info.manaMaximum > 0
             and math.max(0, math.min(100, info.manaCurrent / info.manaMaximum * 100))
             or 0
+
         manaText = string.format(
-            "MANA: %s / %s  %.1f%%",
+            "MANA: %s/%s %.0f%%",
             compactNumber(info.manaCurrent),
             compactNumber(info.manaMaximum),
             percentage
         )
     end
 
+    writeAt(canvas, x, y + 3, "|", C.border)
+    writeAt(canvas, x + 1, y + 3, fit(manaText, innerWidth), C.green)
+    writeAt(canvas, right, y + 3, "|", C.border)
+
+    local requiredText = "NEED: " .. info.required
+    if info.manaRequired then
+        requiredText = "NEED: " .. compactNumber(info.manaRequired) .. " mana"
+    end
+
     writeAt(canvas, x, y + 4, "|", C.border)
-    writeAt(canvas, x + 1, y + 4, fit(manaText, innerWidth), C.green)
+    writeAt(canvas, x + 1, y + 4, fit(requiredText, innerWidth), C.purple)
     writeAt(canvas, right, y + 4, "|", C.border)
 
     writeAt(canvas, x, y + 5, "|", C.border)
-    writeAt(canvas, x + 1, y + 5, fit("MANA REQUIRED: " .. info.required, innerWidth), C.purple)
-    writeAt(canvas, right, y + 5, "|", C.border)
 
-    writeAt(canvas, x, y + 6, "|", C.border)
-    writeAt(canvas, x + 1, y + 6, fit("INPUT / OUTPUT: " .. info.items, innerWidth), C.blue)
-    writeAt(canvas, right, y + 6, "|", C.border)
-
-    if info.manaCurrent and info.manaMaximum and info.manaMaximum > 0 then
+    if percentage then
         local barWidth = math.max(4, innerWidth - 4)
-        local percentage = math.max(0, math.min(100, info.manaCurrent / info.manaMaximum * 100))
         local filled = math.floor(barWidth * percentage / 100)
 
-        writeAt(canvas, x, y + 7, "|", C.border)
-        writeAt(canvas, x + 1, y + 7, "[", C.muted)
-        writeAt(canvas, x + 2, y + 7, string.rep("#", filled), C.green)
-        writeAt(canvas, x + filled + 2, y + 7, string.rep("-", barWidth - filled), C.muted)
-        writeAt(canvas, x + barWidth + 2, y + 7, "]", C.muted)
-        writeAt(canvas, right, y + 7, "|", C.border)
+        writeAt(canvas, x + 1, y + 5, "[", C.muted)
+        writeAt(canvas, x + 2, y + 5, string.rep("#", filled), C.green)
+        writeAt(canvas, x + filled + 2, y + 5, string.rep("-", barWidth - filled), C.muted)
+        writeAt(canvas, x + barWidth + 2, y + 5, "]", C.muted)
     else
-        writeAt(canvas, x, y + 7, "|", C.border)
-        writeAt(canvas, x + 1, y + 7, fit("MANA TELEMETRY: WAITING FOR DATA", innerWidth), C.muted)
-        writeAt(canvas, right, y + 7, "|", C.border)
+        writeAt(canvas, x + 1, y + 5, fit("MANA TELEMETRY WAITING", innerWidth), C.muted)
     end
 
-    writeAt(canvas, x, y + 8, "+" .. string.rep("-", innerWidth) .. "+", C.border)
+    writeAt(canvas, right, y + 5, "|", C.border)
+    writeAt(canvas, x, y + 6, "+" .. string.rep("-", innerWidth) .. "+", C.border)
 end
-
 local function renderCanvas(canvas)
     for y = 1, height do
         local characters = table.concat(canvas.chars[y])
@@ -557,23 +554,19 @@ local function drawDashboard()
 
     writeAt(canvas, 1, 1, "+" .. string.rep("=", width - 2) .. "+", C.border)
     writeCentered(canvas, 2, "POTATOCORE // BOTANIA CORE", C.green)
-    writeCentered(canvas, 3, "AUTONOMOUS PRODUCTION & CRAFTING TELEMETRY", C.blue)
+    writeCentered(canvas, 3, "PRODUCTION & CRAFTING TELEMETRY", C.blue)
     writeAt(canvas, 1, 4, "+" .. string.rep("=", width - 2) .. "+", C.border)
 
     writeAt(canvas, 3, 5, "[SYS] PRODUCTION LINE " .. (online == 7 and "ONLINE" or "PARTIAL"),
         online == 7 and C.green or C.orange)
     writeRight(canvas, 5, width - 3, "[MACHINES] " .. online .. "/7  [READERS] " .. #readers, C.cyan)
 
-    writeRule(canvas, 6, "-", C.border)
-    writeCentered(canvas, 7, "/// LIVE MACHINE STATUS // RECIPE // MANA REQUIREMENTS ///", C.cyan)
-
     local columns = 2
     local gap = 2
     local cardWidth = math.floor((width - 4 - gap) / columns)
     local firstX = math.floor((width - (cardWidth * columns + gap)) / 2) + 1
-    local firstY = 8
-    local cardHeight = 9
-    local rowGap = 1
+    local firstY = 6
+    local rowGap = 7
 
     for index, definition in ipairs(MACHINES) do
         local column = (index - 1) % columns
@@ -585,9 +578,8 @@ local function drawDashboard()
     end
 
     local uptime = formatDuration((os.epoch("utc") - startedAt) / 1000)
-    writeRule(canvas, height - 2, "=", C.purple)
-    writeAt(canvas, 3, height - 1, "DIAGNOSTICS: " .. CONFIG.diagnosticFile, C.blue)
-    writeRight(canvas, height - 1, width - 3, "UPTIME " .. uptime .. " // MONITOR ONLINE", C.green)
+    writeAt(canvas, 3, height - 1, "LOG: " .. CONFIG.diagnosticFile, C.blue)
+    writeRight(canvas, height - 1, width - 3, "UP " .. uptime .. " // ONLINE", C.green)
     writeAt(canvas, 1, height, "+" .. string.rep("=", width - 2) .. "+", C.border)
 
     renderCanvas(canvas)
