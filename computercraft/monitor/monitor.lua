@@ -346,6 +346,11 @@ local function buildMachineInfo(reader)
         required = compactNumber(data.manaRequired) .. " mana"
     end
 
+    local manaPercent = nil
+    if data.manaCurrent ~= nil and data.manaMaximum ~= nil and data.manaMaximum > 0 then
+        manaPercent = math.max(0, math.min(100, data.manaCurrent / data.manaMaximum * 100))
+    end
+
     return {
         status = hasData and "ONLINE" or "NO DATA",
         statusColour = hasData and C.green or C.orange,
@@ -356,7 +361,8 @@ local function buildMachineInfo(reader)
         items = joinValues(data.items, "Not exposed"),
         manaCurrent = data.manaCurrent,
         manaMaximum = data.manaMaximum,
-        manaRequired = data.manaRequired
+        manaRequired = data.manaRequired,
+        manaPercent = manaPercent
     }
 end
 
@@ -423,9 +429,9 @@ local function drawCard(canvas, index, definition, info, x, y, cardWidth, cardHe
     local leftDashes = math.max(0, math.floor((innerWidth - #heading) / 2))
     local rightDashes = math.max(0, innerWidth - #heading - leftDashes)
 
-    -- Match the Mana Core's framed cards and restrained cyan/purple accents.
+    -- Framed module cards follow the Mana Core's cyan / purple visual language.
     writeAt(canvas, x, y, "+" .. string.rep("-", leftDashes), C.border)
-    writeAt(canvas, x + 1 + leftDashes, y, heading, info.statusColour == C.red and C.muted or C.cyan)
+    writeAt(canvas, x + 1 + leftDashes, y, heading, C.cyan)
     writeAt(canvas, x + 1 + leftDashes + #heading, y, string.rep("-", rightDashes) .. "+", C.border)
 
     local function cardLine(offset, value, colour)
@@ -434,11 +440,40 @@ local function drawCard(canvas, index, definition, info, x, y, cardWidth, cardHe
         writeAt(canvas, right, y + offset, "|", C.border)
     end
 
-    cardLine(1, info.status .. "  //  " .. info.computer, info.statusColour)
-    cardLine(2, "PROCESS  " .. info.craft, C.yellow)
+    cardLine(1, info.status, info.statusColour)
+    cardLine(2, info.craft == "No recipe data" and "STANDBY  //  RECIPE NOT EXPOSED"
+        or ("PROCESS  " .. info.craft), C.yellow)
 
-    if cardHeight >= 6 then
+    if cardHeight >= 8 then
+        local barWidth = math.max(4, innerWidth - 7)
+        local percent = info.manaPercent or 0
+        local filled = math.floor(barWidth * percent / 100)
+        local meter = "[" .. string.rep("#", filled)
+            .. string.rep("-", barWidth - filled) .. "] "
+            .. string.format("%3.0f%%", percent)
+
+        cardLine(3, info.manaPercent and meter or "MANA STORAGE NOT EXPOSED", info.manaPercent and C.green or C.muted)
+        cardLine(4, "MANA  " .. info.mana, C.green)
+        cardLine(5, "REQUIRED  " .. info.required, C.purple)
+        cardLine(6, "INPUT / OUTPUT  " .. info.items, C.blue)
+    elseif cardHeight >= 7 then
+        local barWidth = math.max(4, innerWidth - 7)
+        local percent = info.manaPercent or 0
+        local filled = math.floor(barWidth * percent / 100)
+        local meter = "[" .. string.rep("#", filled)
+            .. string.rep("-", barWidth - filled) .. "] "
+            .. string.format("%3.0f%%", percent)
+
+        cardLine(3, info.manaPercent and meter or "MANA STORAGE NOT EXPOSED", info.manaPercent and C.green or C.muted)
+        cardLine(4, "MANA  " .. info.mana, C.green)
+
+        local detail = info.required ~= "Not exposed"
+            and ("REQUIRED  " .. info.required)
+            or ("INPUT / OUTPUT  " .. info.items)
+        cardLine(5, detail, info.required ~= "Not exposed" and C.purple or C.blue)
+    elseif cardHeight >= 6 then
         cardLine(3, "MANA  " .. info.mana, C.green)
+
         local detail = info.required ~= "Not exposed"
             and ("REQUIRED  " .. info.required)
             or ("INPUT / OUTPUT  " .. info.items)
@@ -599,11 +634,13 @@ local function drawDashboard()
     local firstX = 2
     local secondX = firstX + cardWidth + gap
     local firstY = 8
-    local cardHeight = height >= 36 and 6 or 5
-    local rowCount = math.ceil(#MACHINES / columns)
     local footerY = height - 1
     local lastCardY = footerY - 1
     local availableRows = lastCardY - firstY + 1
+    local rowCount = math.ceil(#MACHINES / columns)
+    local cardHeight = math.max(5, math.min(8, math.floor(
+        (availableRows - (rowCount - 1)) / rowCount
+    )))
     local extraRows = math.max(0, availableRows - rowCount * cardHeight)
     local rowGap = math.floor(extraRows / math.max(1, rowCount - 1))
 
@@ -617,7 +654,7 @@ local function drawDashboard()
     end
 
     local uptime = formatDuration((os.epoch("utc") - startedAt) / 1000)
-    writeAt(canvas, 3, footerY, "MACHINES " .. online .. "/" .. #MACHINES .. "  //  UP " .. uptime, C.blue)
+    writeAt(canvas, 3, footerY, "MODULES " .. online .. "/" .. #MACHINES .. "  //  UP " .. uptime, C.blue)
     writeRight(canvas, footerY, width - 2, "BOTANIA // ACTIVE", C.green)
     writeAt(canvas, 1, height, "+" .. string.rep("=", width - 2) .. "+", C.border)
 
