@@ -13,7 +13,7 @@
 -- ============================================================
 
 local CONFIG = {
-    modemSide = "top",
+    modemSide = "bottom",
     textScale = 0.5,
     refreshInterval = 2,
     diagnosticInterval = 10,
