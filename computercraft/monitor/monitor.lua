@@ -63,13 +63,13 @@ local lastDiagnostic = 0
 local lastDraw = 0
 
 local MACHINES = {
-    { id = "industrial_agglomeration_factory", label = "IND. AGGLOM." },
+    { id = "industrial_agglomeration_factory", label = "INDUSTRIAL AGGLOMERATION" },
     { id = "alfheim_market", label = "ALFHEIM MARKET" },
-    { id = "mechanical_mana_pool", label = "MANA POOL" },
-    { id = "mechanical_runic_altar", label = "RUNIC ALTAR" },
-    { id = "mechanical_apothecary", label = "APOTHECARY" },
-    { id = "mechanical_daisy", label = "DAISY #1" },
-    { id = "mechanical_daisy", label = "DAISY #2" }
+    { id = "mechanical_mana_pool", label = "MECHANICAL MANA POOL" },
+    { id = "mechanical_runic_altar", label = "MECHANICAL RUNIC ALTAR" },
+    { id = "mechanical_apothecary", label = "MECHANICAL APOTHECARY" },
+    { id = "mechanical_daisy", label = "PURE DAISY // 01" },
+    { id = "mechanical_daisy", label = "PURE DAISY // 02" }
 }
 
 monitor.setBackgroundColor(C.background)
@@ -407,17 +407,33 @@ local function writeRight(canvas, y, x, value, foreground)
 end
 
 local function drawCard(canvas, index, definition, info, x, y, cardWidth)
+    local right = x + cardWidth - 1
     local innerWidth = cardWidth - 2
-    local heading = string.format("%02d  %s", index, definition.label)
+    local heading = fit(string.format("%02d // %s", index, definition.label), innerWidth)
+    local leftDashes = math.max(0, math.floor((innerWidth - #heading) / 2))
+    local rightDashes = math.max(0, innerWidth - #heading - leftDashes)
 
-    -- Solid header strip, then a clean five-line telemetry body.
-    writeAt(canvas, x, y, string.rep(" ", cardWidth), C.white, C.panel)
-    writeAt(canvas, x + 1, y, fit(heading, innerWidth), C.cyan, C.panel)
-    writeAt(canvas, x + 1, y + 1, fit(info.status .. "  " .. info.computer, innerWidth), info.statusColour)
-    writeAt(canvas, x + 1, y + 2, fit("RECIPE  " .. info.craft, innerWidth), C.yellow)
-    writeAt(canvas, x + 1, y + 3, fit("MANA    " .. info.mana, innerWidth), C.green)
-    writeAt(canvas, x + 1, y + 4, fit("NEED    " .. info.required, innerWidth), C.purple)
-    writeAt(canvas, x + 1, y + 5, fit("I/O     " .. info.items, innerWidth), C.blue)
+    -- Match the Mana Core's framed cards and restrained cyan/purple accents.
+    writeAt(canvas, x, y, "+" .. string.rep("-", leftDashes), C.border)
+    writeAt(canvas, x + 1 + leftDashes, y, heading, info.statusColour == C.red and C.muted or C.cyan)
+    writeAt(canvas, x + 1 + leftDashes + #heading, y, string.rep("-", rightDashes) .. "+", C.border)
+
+    local function cardLine(offset, value, colour)
+        writeAt(canvas, x, y + offset, "|", C.border)
+        writeAt(canvas, x + 1, y + offset, fit(value, innerWidth), colour or C.white)
+        writeAt(canvas, right, y + offset, "|", C.border)
+    end
+
+    cardLine(1, info.status .. "  //  " .. info.computer, info.statusColour)
+    cardLine(2, "PROCESS  " .. info.craft, C.yellow)
+    cardLine(3, "MANA  " .. info.mana, C.green)
+
+    local detail = info.required ~= "Not exposed"
+        and ("REQUIRED  " .. info.required)
+        or ("INPUT / OUTPUT  " .. info.items)
+    cardLine(4, detail, info.required ~= "Not exposed" and C.purple or C.blue)
+
+    writeAt(canvas, x, y + 5, "+" .. string.rep("-", innerWidth) .. "+", C.border)
 end
 
 local function renderCanvas(canvas)
@@ -532,30 +548,44 @@ local function drawDashboard()
         end
     end
 
+    local systemState = "NETWORK STANDBY"
+    local systemColour = C.blue
+    if online == #MACHINES then
+        systemState = "ALL SYSTEMS ONLINE"
+        systemColour = C.green
+    elseif online > 0 then
+        systemState = "PRODUCTION NETWORK PARTIAL"
+        systemColour = C.orange
+    end
+
+    -- Reactor-style title and network summary, matching the Mana Core display.
     writeAt(canvas, 1, 1, "+" .. string.rep("=", width - 2) .. "+", C.border)
-    writeCentered(canvas, 2, "POTATOCORE", C.green)
-    writeCentered(canvas, 3, "BOTANIA PRODUCTION  /  MACHINE TELEMETRY", C.cyan)
+    writeCentered(canvas, 2, "POTATOCORE // BOTANIA CORE", C.green)
+    writeCentered(canvas, 3, "AUTOMATED BOTANIA PRODUCTION NETWORK", C.blue)
     writeAt(canvas, 1, 4, "+" .. string.rep("=", width - 2) .. "+", C.border)
 
-    local systemState = online == #MACHINES and "ALL MACHINES LINKED" or "WAITING FOR MACHINES"
-    local systemColour = online == #MACHINES and C.green or C.orange
-    writeAt(canvas, 2, 5, fit("SYSTEM  " .. systemState, math.floor(width / 2) - 2), systemColour)
-    writeRight(canvas, 5, width - 2, "MACHINES " .. online .. "/" .. #MACHINES .. "  |  PCS " .. activeComputers, C.cyan)
-    writeAt(canvas, 1, 6, "+" .. string.rep("-", width - 2) .. "+", C.border)
+    writeAt(canvas, 3, 5, "[SYS] " .. systemState, systemColour)
+    writeRight(canvas, 5, width - 2, "[MACHINES] " .. online .. "/" .. #MACHINES
+        .. "  [TX] " .. activeComputers, C.cyan)
 
-    -- Two columns keep each machine card wide enough to read on the 6x6 display.
+    writeAt(canvas, 1, 6, string.rep("-", width), C.border)
+    writeCentered(canvas, 7, "/// PRODUCTION MODULES ///", C.cyan)
+
+    -- Four rows keep names and telemetry readable without turning the screen
+    -- into a wall of tiny debug fields.
     local columns = 2
     local gap = 2
-    local cardWidth = math.floor((width - 3) / columns)
+    local cardWidth = math.floor((width - 4) / columns)
     local firstX = 2
     local secondX = firstX + cardWidth + gap
-    local firstY = 7
+    local firstY = 8
     local cardHeight = 6
     local rowCount = math.ceil(#MACHINES / columns)
     local footerY = height - 1
-    local usableCardHeight = footerY - firstY
-    local extraSpace = usableCardHeight - rowCount * cardHeight
-    local rowGap = math.max(0, math.floor(extraSpace / math.max(1, rowCount - 1)))
+    local lastCardY = footerY - 1
+    local availableRows = lastCardY - firstY + 1
+    local extraRows = math.max(0, availableRows - rowCount * cardHeight)
+    local rowGap = math.floor(extraRows / math.max(1, rowCount - 1))
 
     for index, definition in ipairs(MACHINES) do
         local column = (index - 1) % columns
@@ -567,10 +597,9 @@ local function drawDashboard()
     end
 
     local uptime = formatDuration((os.epoch("utc") - startedAt) / 1000)
-    local footerRight = "UP " .. uptime .. "  /  RX LIVE"
-    local footerLeft = "DIAG  " .. CONFIG.diagnosticFile
-    writeAt(canvas, 2, footerY, fit(footerLeft, width - #footerRight - 4), C.muted)
-    writeRight(canvas, footerY, width - 2, footerRight, C.green)
+    writeAt(canvas, 3, footerY, "LINKS " .. online .. "/" .. #MACHINES
+        .. "  //  UPTIME " .. uptime, C.blue)
+    writeRight(canvas, footerY, width - 2, "POTATOCORE // ACTIVE", C.green)
     writeAt(canvas, 1, height, "+" .. string.rep("=", width - 2) .. "+", C.border)
 
     renderCanvas(canvas)
