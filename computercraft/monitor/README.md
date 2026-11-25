@@ -1,6 +1,6 @@
 # PotatoCore Monitor
 
-Central receiver and dashboard for the Botania production network.
+Central receiver and Botania production dashboard, styled to match the Mana Core display.
 
 ## Hardware
 
@@ -18,21 +18,17 @@ Central receiver and dashboard for the Botania production network.
 
 Or focus the dedicated monitor computer's CraftOS terminal and press **Ctrl+M** in FixAdvancedComputers.Py.
 
-## Dashboard design
+## Dashboard
 
-The Botania display follows the same visual system as the Mana Core dashboard:
-
-- Larger adaptive text scale, preferring 0.8 and falling back to 0.7 / 0.5 when the monitor needs more room.
-- Framed machine cards with cyan / purple borders and color-coded status.
-- A clear system header, network status, machine count, and transmitter count.
-- Two-column production module layout for all seven machines.
-- Machine cards show status, process / recipe, mana, and required items or input/output telemetry.
-- Compact card layout is used on shorter monitors.
-- Cached colored rendering prevents full-screen flashing.
+- Reactor-style title, system health, module count, and transmitter count.
+- Larger adaptive text scale: prefers 0.8, then falls back to 0.7 / 0.5 when the connected monitor needs more room.
+- Two-column, framed production cards using the Mana Core's cyan / blue / purple visual language.
+- Card height adapts to the available monitor space, showing more telemetry on larger displays.
+- Machine status, process / recipe, mana storage meter (when exposed), mana amount, required amount, and input/output details.
+- Missing telemetry is shown as **Not exposed** or **No recipe data**, never as zero.
+- Cached colored rendering avoids full-screen flashing.
 - Raw receiver diagnostics are written to `botania_received_data.txt` every ten seconds.
-- Diagnostic serialization handles shared or repeated table references without crashing.
-
-Missing telemetry is shown as **Not exposed** or **No recipe data**, never as zero.
+- Diagnostic serialization handles shared or repeated table references safely.
 
 The receiver listens on `potatocore_botania_machines_v1`. It does not replace the existing Mana Core receiver in `computercraft/mana-network/mana_rx.lua`.
 
