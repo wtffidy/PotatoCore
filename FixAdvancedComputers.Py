@@ -1,8 +1,16 @@
+import ctypes
 import threading
 import time
 
-import keyboard
-import pyautogui
+try:
+    import keyboard
+    import pyautogui
+except ImportError as exc:
+    missing = exc.name or "keyboard / pyautogui"
+    raise SystemExit(
+        f"Missing dependency: {missing}\n"
+        "Install with: py -m pip install keyboard pyautogui"
+    ) from exc
 
 
 # Ctrl+P: install the Mana Pool transmitter on a Mana Pool computer.
@@ -32,7 +40,51 @@ MACHINE_COMMANDS = [
     "machines.lua",
 ]
 
+RAW_BASE_URL = "https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft"
+TARGET_WINDOW_HINTS = ("minecraft",)
+COMMAND_INTERVAL = 0.015
+DELETE_DELAY = 0.35
+DOWNLOAD_DELAY = 3.0
+START_DELAY = 0.8
+
 run_lock = threading.Lock()
+stop_event = threading.Event()
+
+pyautogui.FAILSAFE = True
+pyautogui.PAUSE = 0.05
+
+
+def active_window_is_minecraft():
+    """Prevent installer keystrokes from going into an unrelated window."""
+    try:
+        user32 = ctypes.windll.user32
+        window_handle = user32.GetForegroundWindow()
+        title_length = user32.GetWindowTextLengthW(window_handle)
+        title_buffer = ctypes.create_unicode_buffer(title_length + 1)
+        user32.GetWindowTextW(window_handle, title_buffer, len(title_buffer))
+        title = title_buffer.value
+    except Exception as exc:
+        print(f"[FOCUS] Could not determine the active window: {exc}")
+        return False
+
+    if not title:
+        print("[FOCUS] No active window detected. Focus Minecraft and retry.")
+        return False
+
+    if not any(hint in title.casefold() for hint in TARGET_WINDOW_HINTS):
+        print(f"[FOCUS] Refusing to type into: {title}")
+        print("[FOCUS] Focus the Minecraft CraftOS terminal and retry.")
+        return False
+
+    return True
+
+
+def command_delay(command):
+    if command.startswith("wget "):
+        return DOWNLOAD_DELAY
+    if command.startswith("delete "):
+        return DELETE_DELAY
+    return START_DELAY
 
 
 def run_commands(label, commands):
@@ -40,20 +92,37 @@ def run_commands(label, commands):
         print(f"[{label}] Another install sequence is already running.")
         return
 
+    stop_event.clear()
+
     try:
+        if not active_window_is_minecraft():
+            return
+
         print(f"[{label}] Sending commands to the focused Minecraft computer...")
         time.sleep(0.2)
 
-        for command in commands:
-            pyautogui.write(command, interval=0)
+        for index, command in enumerate(commands, start=1):
+            if stop_event.is_set():
+                print(f"[{label}] Cancelled before command {index}.")
+                return
+
+            if not active_window_is_minecraft():
+                print(f"[{label}] Stopped because Minecraft lost focus.")
+                return
+
+            print(f"[{label}] {index}/{len(commands)}  {command}")
+            pyautogui.write(command, interval=COMMAND_INTERVAL)
             pyautogui.press("enter")
 
-            if command.startswith("wget "):
-                time.sleep(2.5)  # Allow the download to finish.
-            elif command.startswith("delete "):
-                time.sleep(0.2)
+            if stop_event.wait(command_delay(command)):
+                print(f"[{label}] Cancelled after command {index}.")
+                return
 
-        print(f"[{label}] Install commands sent.")
+        print(f"[{label}] Commands sent. Check CraftOS for wget or Lua errors.")
+    except pyautogui.FailSafeException:
+        print(f"[{label}] Stopped by the PyAutoGUI fail-safe.")
+    except Exception as exc:
+        print(f"[{label}] Installer error: {type(exc).__name__}: {exc}")
     finally:
         run_lock.release()
 
@@ -62,9 +131,17 @@ def start_sequence(label, commands):
     threading.Thread(
         target=run_commands,
         args=(label, commands),
+        name=f"PotatoCore-{label}",
         daemon=True
     ).start()
 
+
+def cancel_sequence():
+    if run_lock.locked():
+        stop_event.set()
+        print("[STOP] Cancellation requested. The current command will finish first.")
+    else:
+        print("[STOP] No installer sequence is running.")
 
 keyboard.add_hotkey(
     "ctrl+p",
@@ -81,6 +158,12 @@ keyboard.add_hotkey(
 keyboard.add_hotkey(
     "ctrl+b",
     lambda: start_sequence("CTRL+B | MACHINES", MACHINE_COMMANDS),
+    suppress=True
+)
+
+keyboard.add_hotkey(
+    "ctrl+shift+x",
+    cancel_sequence,
     suppress=True
 )
 
@@ -102,7 +185,9 @@ print("")
 print("IMPORTANT: Focus the correct Minecraft computer terminal")
 print("           before pressing its install hotkey.")
 print("           If a Lua program is running, press CTRL+C first.")
-print("CTRL + C  |  EXIT")
+print("           Keep Minecraft focused until commands finish.")
+print("CTRL + SHIFT + X | CANCEL current sequence")
+print("CTRL + C         | EXIT")
 print("======================================================")
 
 keyboard.wait()
