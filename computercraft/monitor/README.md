@@ -29,10 +29,11 @@ Each of the seven machine cards shows only:
 No computer IDs, network counters, peripheral status, uptime, recipe debug paths, or inventory diagnostics appear on the monitor.
 
 - Mana values use full comma-separated numbers when the display is wide enough and compact values on narrower displays.
-- Missing values display as `N/A`; no active/identified craft displays as `—`.
+- Missing values display as `N/A`; an empty or unknown output displays as `NO ITEM`.
 - The display uses a two-column, framed layout with the Botania/Mana Core color palette.
 - Cached colored rendering avoids full-screen flashing.
 - Machine transmitters send fresh Block Reader data every 0.5 seconds (up to four updates per second per machine).
+- Item detection reads the machines' actual output inventory slots from `inv.Items`, including the Industrial Agglomeration Factory's Terrasteel output slot.
 - Raw receiver diagnostics are still written to `botania_received_data.txt` every ten seconds, separately from the display.
 - Diagnostic serialization handles shared or repeated table references safely.
 
