@@ -53,14 +53,11 @@ end
 
 local C = {
     background = colors.black,
-    panel = colors.gray,
     white = colors.white,
     muted = colors.gray,
     border = colors.blue,
     cyan = colors.cyan,
     green = colors.lime,
-    red = colors.red,
-    orange = colors.orange,
     blue = colors.lightBlue,
     purple = colors.purple,
     yellow = colors.yellow
@@ -75,11 +72,11 @@ local lastDraw = 0
 local MACHINES = {
     { id = "industrial_agglomeration_factory", label = "INDUSTRIAL AGGLOMERATION" },
     { id = "alfheim_market", label = "ALFHEIM MARKET" },
-    { id = "mechanical_mana_pool", label = "MECHANICAL MANA POOL" },
-    { id = "mechanical_runic_altar", label = "MECHANICAL RUNIC ALTAR" },
-    { id = "mechanical_apothecary", label = "MECHANICAL APOTHECARY" },
-    { id = "mechanical_daisy", label = "PURE DAISY // 01" },
-    { id = "mechanical_daisy", label = "PURE DAISY // 02" }
+    { id = "mechanical_mana_pool", label = "MANA POOL" },
+    { id = "mechanical_runic_altar", label = "RUNIC ALTAR" },
+    { id = "mechanical_apothecary", label = "APOTHECARY" },
+    { id = "mechanical_daisy", label = "PURE DAISY 01" },
+    { id = "mechanical_daisy", label = "PURE DAISY 02" }
 }
 
 monitor.setBackgroundColor(C.background)
@@ -132,10 +129,6 @@ end
 
 local function summarizeData(data)
     local result = {
-        mana = {},
-        required = {},
-        process = {},
-        items = {},
         manaCurrent = nil,
         manaMaximum = nil,
         manaRequired = nil
@@ -145,16 +138,14 @@ local function summarizeData(data)
         return result
     end
 
-    local function add(list, path, value)
-        if #list < 3 then
-            list[#list + 1] = path .. "=" .. value
-        end
-    end
+    local seen = {}
 
     local function walk(node, path, depth)
-        if type(node) ~= "table" or depth > 7 then
+        if type(node) ~= "table" or depth > 8 or seen[node] then
             return
         end
+
+        seen[node] = true
 
         local keys = {}
         for key in pairs(node) do
@@ -166,63 +157,38 @@ local function summarizeData(data)
 
         for _, key in ipairs(keys) do
             local value = node[key]
-            local keyText = tostring(key)
+            local keyText = tostring(key):lower()
             local currentPath = path == "" and keyText or path .. "." .. keyText
-            local normalizedKey = keyText:lower()
-            local normalizedPath = currentPath:lower()
             local numericValue = tonumber(value)
-            local valueText = nil
 
-            if type(value) == "string" or type(value) == "number" or type(value) == "boolean" then
-                valueText = tostring(value)
-            end
-
-            if valueText then
-                if normalizedKey:find("mana", 1, true) then
-                    add(result.mana, currentPath, valueText)
-
-                    if numericValue then
-                        if normalizedKey == "mana"
-                            or normalizedKey == "currentmana"
-                            or normalizedKey == "storedmana"
-                            or normalizedKey == "manastored" then
-                            result.manaCurrent = numericValue
-                        elseif normalizedKey:find("maxmana", 1, true)
-                            or normalizedKey:find("manacapacity", 1, true)
-                            or normalizedKey:find("manamax", 1, true) then
-                            result.manaMaximum = numericValue
-                        end
-                    end
-                end
-
-                if normalizedKey:find("cost", 1, true)
-                    or normalizedKey:find("required", 1, true)
-                    or normalizedKey:find("need", 1, true) then
-                    add(result.required, currentPath, valueText)
-
-                    if numericValue and normalizedKey:find("mana", 1, true) then
-                        result.manaRequired = numericValue
-                    end
-                end
-
-                if normalizedPath:find("recipe", 1, true)
-                    or normalizedPath:find("craft", 1, true)
-                    or normalizedPath:find("output", 1, true)
-                    or normalizedPath:find("input", 1, true)
-                    or normalizedPath:find("result", 1, true)
-                    or normalizedPath:find("process", 1, true)
-                    or normalizedPath:find("progress", 1, true) then
-                    add(result.process, currentPath, valueText)
-                end
-
-                if normalizedPath:find("item", 1, true)
-                    or normalizedPath:find("invent", 1, true)
-                    or normalizedPath:find("slot", 1, true)
-                    or normalizedPath:find("fluid", 1, true) then
-                    add(result.items, currentPath, valueText)
-                end
-            elseif type(value) == "table" then
+            if type(value) == "table" then
                 walk(value, currentPath, depth + 1)
+            elseif numericValue then
+                local manaPath = currentPath:find("mana", 1, true) ~= nil
+
+                if manaPath then
+                    if keyText:find("required", 1, true)
+                        or keyText:find("cost", 1, true)
+                        or keyText:find("need", 1, true) then
+                        result.manaRequired = numericValue
+                    elseif keyText:find("maximum", 1, true)
+                        or keyText:find("max", 1, true)
+                        or keyText:find("capacity", 1, true) then
+                        result.manaMaximum = numericValue
+                    elseif keyText == "mana"
+                        or keyText == "current"
+                        or keyText == "amount"
+                        or keyText == "stored"
+                        or keyText == "currentmana"
+                        or keyText == "storedmana"
+                        or keyText == "manastored"
+                        or keyText == "value" then
+                        result.manaCurrent = numericValue
+                    end
+                elseif keyText == "manacost" or keyText == "manarequired"
+                    or keyText == "requiredmana" or keyText == "neededmana" then
+                    result.manaRequired = numericValue
+                end
             end
         end
     end
@@ -231,12 +197,118 @@ local function summarizeData(data)
     return result
 end
 
-local function joinValues(values, fallback)
-    if #values == 0 then
-        return fallback
+local function findCraftItem(data)
+    if type(data) ~= "table" then
+        return nil
     end
 
-    return table.concat(values, " | ")
+    local candidates = {}
+    local seen = {}
+
+    local function normalizeItem(value)
+        local item = tostring(value or ""):gsub("^%s+", ""):gsub("%s+$", "")
+        if item == "" or item:lower() == "air" or item:lower() == "empty"
+            or item:lower() == "none" or item:lower() == "null" then
+            return nil
+        end
+
+        local namespace, path = item:match("^([%w_.%-]+):([%w_./%-]+)$")
+        if namespace and path then
+            item = path:gsub("[_./%-]+", " ")
+        end
+
+        item = item:gsub("(%a)([%w']*)", function(first, rest)
+            return first:upper() .. rest
+        end)
+
+        return item
+    end
+
+    local function walk(node, path, depth)
+        if type(node) ~= "table" or depth > 8 or seen[node] then
+            return
+        end
+
+        seen[node] = true
+
+        local keys = {}
+        for key in pairs(node) do
+            keys[#keys + 1] = key
+        end
+        table.sort(keys, function(a, b)
+            return tostring(a) < tostring(b)
+        end)
+
+        for _, key in ipairs(keys) do
+            local value = node[key]
+            local keyText = tostring(key):lower()
+            local currentPath = path == "" and keyText or path .. "." .. keyText
+            local lowerPath = currentPath:lower()
+            local recipePath = lowerPath:find("output", 1, true)
+                or lowerPath:find("result", 1, true)
+                or lowerPath:find("recipe", 1, true)
+                or lowerPath:find("craft", 1, true)
+                or lowerPath:find("product", 1, true)
+
+            if type(value) == "table" then
+                walk(value, currentPath, depth + 1)
+            elseif type(value) == "string" and recipePath then
+                local itemField = keyText:find("item", 1, true)
+                    or keyText == "id"
+                    or keyText == "name"
+                    or keyText == "output"
+                    or keyText == "result"
+                    or keyText == "crafted"
+                    or keyText == "product"
+
+                if itemField then
+                    local item = normalizeItem(value)
+                    if item then
+                        local score = 0
+                        if lowerPath:find("output", 1, true) then
+                            score = score + 100
+                        elseif lowerPath:find("result", 1, true) then
+                            score = score + 90
+                        elseif lowerPath:find("recipe", 1, true) then
+                            score = score + 80
+                        elseif lowerPath:find("craft", 1, true) then
+                            score = score + 70
+                        end
+
+                        if keyText:find("item", 1, true) then
+                            score = score + 20
+                        end
+
+                        candidates[#candidates + 1] = {
+                            item = item,
+                            score = score
+                        }
+                    end
+                end
+            end
+        end
+    end
+
+    walk(data, "", 0)
+    table.sort(candidates, function(a, b)
+        if a.score == b.score then
+            return a.item < b.item
+        end
+        return a.score > b.score
+    end)
+
+    return candidates[1] and candidates[1].item or nil
+end
+
+local function formatNumber(value)
+    local result = tostring(math.floor(math.max(0, tonumber(value) or 0)))
+    while true do
+        local formatted, count = result:gsub("^(%d+)(%d%d%d)", "%1,%2")
+        result = formatted
+        if count == 0 then
+            return result
+        end
+    end
 end
 
 local function classify(blockName)
@@ -318,51 +390,22 @@ end
 local function buildMachineInfo(reader)
     if not reader then
         return {
-            status = "OFFLINE",
-            statusColour = C.red,
-            computer = "--",
-            craft = "Waiting for machine",
-            mana = "Not exposed",
-            required = "Not exposed",
-            items = "Not exposed",
-            manaCurrent = nil,
-            manaMaximum = nil,
-            manaRequired = nil
+            craftItem = "—",
+            mana = "[N/A / N/A]",
+            manaRequired = "[N/A]"
         }
     end
 
     local data = summarizeData(reader.data)
-    local hasData = type(reader.data) == "table"
-    local mana = joinValues(data.mana, "Not exposed")
-    local required = joinValues(data.required, "Not exposed")
-
-    if data.manaCurrent and data.manaMaximum then
-        mana = compactNumber(data.manaCurrent) .. " / " .. compactNumber(data.manaMaximum)
-    elseif data.manaCurrent then
-        mana = compactNumber(data.manaCurrent)
-    end
-
-    if data.manaRequired then
-        required = compactNumber(data.manaRequired) .. " mana"
-    end
-
-    local manaPercent = nil
-    if data.manaCurrent ~= nil and data.manaMaximum ~= nil and data.manaMaximum > 0 then
-        manaPercent = math.max(0, math.min(100, data.manaCurrent / data.manaMaximum * 100))
-    end
+    local craftItem = findCraftItem(reader.data) or "—"
+    local manaCurrent = data.manaCurrent ~= nil and formatNumber(data.manaCurrent) or "N/A"
+    local manaMaximum = data.manaMaximum ~= nil and formatNumber(data.manaMaximum) or "N/A"
+    local manaRequired = data.manaRequired ~= nil and formatNumber(data.manaRequired) or "N/A"
 
     return {
-        status = hasData and "ONLINE" or "NO DATA",
-        statusColour = hasData and C.green or C.orange,
-        computer = "PC " .. tostring(reader.computer),
-        craft = joinValues(data.process, "No recipe data"),
-        mana = mana,
-        required = required,
-        items = joinValues(data.items, "Not exposed"),
-        manaCurrent = data.manaCurrent,
-        manaMaximum = data.manaMaximum,
-        manaRequired = data.manaRequired,
-        manaPercent = manaPercent
+        craftItem = craftItem,
+        mana = "[" .. manaCurrent .. " / " .. manaMaximum .. "]",
+        manaRequired = "[" .. manaRequired .. "]"
     }
 end
 
@@ -422,71 +465,27 @@ local function writeRight(canvas, y, x, value, foreground)
     writeAt(canvas, x - #value + 1, y, value, foreground)
 end
 
-local function drawCard(canvas, index, definition, info, x, y, cardWidth, cardHeight)
+local function drawCard(canvas, definition, info, x, y, cardWidth, cardHeight)
     local right = x + cardWidth - 1
     local innerWidth = cardWidth - 2
-    local heading = fit(string.format("%02d // %s", index, definition.label), innerWidth)
+    local heading = fit(definition.label, innerWidth)
     local leftDashes = math.max(0, math.floor((innerWidth - #heading) / 2))
     local rightDashes = math.max(0, innerWidth - #heading - leftDashes)
 
-    -- Framed module cards follow the Mana Core's cyan / purple visual language.
     writeAt(canvas, x, y, "+" .. string.rep("-", leftDashes), C.border)
     writeAt(canvas, x + 1 + leftDashes, y, heading, C.cyan)
     writeAt(canvas, x + 1 + leftDashes + #heading, y, string.rep("-", rightDashes) .. "+", C.border)
 
-    local function cardLine(offset, value, colour)
+    local function cardLine(offset, label, value, colour)
+        local line = label .. "  " .. value
         writeAt(canvas, x, y + offset, "|", C.border)
-        writeAt(canvas, x + 1, y + offset, fit(value, innerWidth), colour or C.white)
+        writeAt(canvas, x + 1, y + offset, fit(line, innerWidth), colour)
         writeAt(canvas, right, y + offset, "|", C.border)
     end
 
-    cardLine(1, info.status, info.statusColour)
-    cardLine(2, info.craft == "No recipe data" and "STANDBY  //  RECIPE NOT EXPOSED"
-        or ("PROCESS  " .. info.craft), C.yellow)
-
-    if cardHeight >= 8 then
-        local barWidth = math.max(4, innerWidth - 7)
-        local percent = info.manaPercent or 0
-        local filled = math.floor(barWidth * percent / 100)
-        local meter = "[" .. string.rep("#", filled)
-            .. string.rep("-", barWidth - filled) .. "] "
-            .. string.format("%3.0f%%", percent)
-
-        cardLine(3, info.manaPercent and meter or "MANA STORAGE NOT EXPOSED", info.manaPercent and C.green or C.muted)
-        cardLine(4, "MANA  " .. info.mana, C.green)
-        cardLine(5, "REQUIRED  " .. info.required, C.purple)
-        cardLine(6, "INPUT / OUTPUT  " .. info.items, C.blue)
-    elseif cardHeight >= 7 then
-        local barWidth = math.max(4, innerWidth - 7)
-        local percent = info.manaPercent or 0
-        local filled = math.floor(barWidth * percent / 100)
-        local meter = "[" .. string.rep("#", filled)
-            .. string.rep("-", barWidth - filled) .. "] "
-            .. string.format("%3.0f%%", percent)
-
-        cardLine(3, info.manaPercent and meter or "MANA STORAGE NOT EXPOSED", info.manaPercent and C.green or C.muted)
-        cardLine(4, "MANA  " .. info.mana, C.green)
-
-        local detail = info.required ~= "Not exposed"
-            and ("REQUIRED  " .. info.required)
-            or ("INPUT / OUTPUT  " .. info.items)
-        cardLine(5, detail, info.required ~= "Not exposed" and C.purple or C.blue)
-    elseif cardHeight >= 6 then
-        cardLine(3, "MANA  " .. info.mana, C.green)
-
-        local detail = info.required ~= "Not exposed"
-            and ("REQUIRED  " .. info.required)
-            or ("INPUT / OUTPUT  " .. info.items)
-        cardLine(4, detail, info.required ~= "Not exposed" and C.purple or C.blue)
-    else
-        local compactDetail = "MANA " .. info.mana
-        if info.required ~= "Not exposed" then
-            compactDetail = compactDetail .. " // NEED " .. info.required
-        elseif info.items ~= "Not exposed" then
-            compactDetail = compactDetail .. " // I/O " .. info.items
-        end
-        cardLine(3, compactDetail, C.green)
-    end
+    cardLine(1, "CRAFTING", info.craftItem, C.yellow)
+    cardLine(2, "MANA", info.mana, C.green)
+    cardLine(3, "REQUIRED", info.manaRequired, C.purple)
 
     writeAt(canvas, x, y + cardHeight - 1, "+" .. string.rep("-", innerWidth) .. "+", C.border)
 end
@@ -588,61 +587,23 @@ local function drawDashboard()
     local assigned = assignMachines(readers)
     local canvas = newCanvas()
 
-    local online = 0
-    for index = 1, #MACHINES do
-        if assigned[index] then
-            online = online + 1
-        end
-    end
-
-    local activeComputers = 0
-    local now = os.epoch("utc")
-    for _, source in pairs(sources) do
-        if now - source.seen <= CONFIG.sourceTimeout * 1000 then
-            activeComputers = activeComputers + 1
-        end
-    end
-
-    local systemState = "NETWORK STANDBY"
-    local systemColour = C.blue
-    if online == #MACHINES then
-        systemState = "ALL SYSTEMS ONLINE"
-        systemColour = C.green
-    elseif online > 0 then
-        systemState = "NETWORK PARTIAL"
-        systemColour = C.orange
-    end
-
-    -- Reactor-style title and network summary, matching the Mana Core display.
+    -- A quiet title, then the seven production modules. No diagnostics,
+    -- computer IDs, link counters, uptime, or peripheral status on-screen.
     writeAt(canvas, 1, 1, "+" .. string.rep("=", width - 2) .. "+", C.border)
-    writeCentered(canvas, 2, "POTATOCORE // BOTANIA CORE", C.green)
-    writeCentered(canvas, 3, "AUTOMATED BOTANIA PRODUCTION NETWORK", C.blue)
-    writeAt(canvas, 1, 4, "+" .. string.rep("=", width - 2) .. "+", C.border)
+    writeCentered(canvas, 2, "BOTANIA PRODUCTION", C.green)
+    writeAt(canvas, 1, 3, "+" .. string.rep("=", width - 2) .. "+", C.border)
 
-    writeAt(canvas, 3, 5, "[SYS] " .. systemState, systemColour)
-    writeRight(canvas, 5, width - 2, "[M] " .. online .. "/" .. #MACHINES
-        .. "  [TX] " .. activeComputers, C.cyan)
-
-    writeAt(canvas, 1, 6, string.rep("-", width), C.border)
-    writeCentered(canvas, 7, "/// PRODUCTION MODULES ///", C.cyan)
-
-    -- Four rows keep names and telemetry readable without turning the screen
-    -- into a wall of tiny debug fields.
     local columns = 2
     local gap = 2
     local cardWidth = math.floor((width - 4) / columns)
     local firstX = 2
     local secondX = firstX + cardWidth + gap
-    local firstY = 8
-    local footerY = height - 1
-    local lastCardY = footerY - 1
-    local availableRows = lastCardY - firstY + 1
+    local firstY = 5
     local rowCount = math.ceil(#MACHINES / columns)
-    local cardHeight = math.max(5, math.min(8, math.floor(
-        (availableRows - (rowCount - 1)) / rowCount
-    )))
+    local cardHeight = 5
+    local availableRows = height - firstY + 1
     local extraRows = math.max(0, availableRows - rowCount * cardHeight)
-    local rowGap = math.floor(extraRows / math.max(1, rowCount - 1))
+    local rowGap = math.max(1, math.min(4, math.floor(extraRows / math.max(1, rowCount - 1))))
 
     for index, definition in ipairs(MACHINES) do
         local column = (index - 1) % columns
@@ -650,13 +611,8 @@ local function drawDashboard()
         local x = column == 0 and firstX or secondX
         local y = firstY + row * (cardHeight + rowGap)
 
-        drawCard(canvas, index, definition, buildMachineInfo(assigned[index]), x, y, cardWidth, cardHeight)
+        drawCard(canvas, definition, buildMachineInfo(assigned[index]), x, y, cardWidth, cardHeight)
     end
-
-    local uptime = formatDuration((os.epoch("utc") - startedAt) / 1000)
-    writeAt(canvas, 3, footerY, "MODULES " .. online .. "/" .. #MACHINES .. "  //  UP " .. uptime, C.blue)
-    writeRight(canvas, footerY, width - 2, "BOTANIA // ACTIVE", C.green)
-    writeAt(canvas, 1, height, "+" .. string.rep("=", width - 2) .. "+", C.border)
 
     renderCanvas(canvas)
     saveDiagnostics(readers, assigned)
