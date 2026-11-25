@@ -396,7 +396,7 @@ end
 local function buildMachineInfo(reader)
     if not reader then
         return {
-            craftItem = "—",
+            craftItem = "NO ITEM",
             mana = "[N/A / N/A]",
             manaRequired = "[N/A]"
         }
@@ -404,7 +404,7 @@ local function buildMachineInfo(reader)
 
     local data = summarizeData(reader.data)
     local detectedCraftItem = findCraftItem(reader.data)
-    local craftItem = detectedCraftItem or "—"
+    local craftItem = detectedCraftItem or "NO ITEM"
     local currentCraftMana = detectedCraftItem and data.manaRequired or nil
 
     local function displayMana(value)
