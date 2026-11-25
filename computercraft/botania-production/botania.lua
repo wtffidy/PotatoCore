@@ -3,7 +3,7 @@
 -- Dedicated 6x6 production dashboard.
 --
 -- Hardware on THIS monitor computer:
---   TOP = Wired Modem
+--   BOTTOM = Wired Modem
 --   Monitor = connected to this computer or its wired network
 --
 -- Seven Block Readers connect through the same wired modem
@@ -566,7 +566,18 @@ local function drawDashboard()
     local cardWidth = math.floor((width - 4 - gap) / columns)
     local firstX = math.floor((width - (cardWidth * columns + gap)) / 2) + 1
     local firstY = 6
-    local rowGap = 7
+    local cardHeight = 7
+    local rowGap = 1
+
+    -- Four card rows occupy rows 6 through 36. Keep the footer below them.
+    local finalCardBottom = firstY + 3 * (cardHeight + rowGap) + cardHeight - 1
+    if finalCardBottom >= height - 1 then
+        error(
+            "Monitor is too short for the seven production cards. "
+            .. "Detected height " .. height .. ", need at least "
+            .. (finalCardBottom + 3) .. " rows."
+        )
+    end
 
     for index, definition in ipairs(MACHINES) do
         local column = (index - 1) % columns
