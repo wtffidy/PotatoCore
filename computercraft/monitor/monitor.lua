@@ -55,6 +55,8 @@ local C = {
     background = colors.black,
     white = colors.white,
     muted = colors.gray,
+    red = colors.red,
+    orange = colors.orange,
     border = colors.blue,
     cyan = colors.cyan,
     green = colors.lime,
@@ -158,6 +160,7 @@ local function summarizeData(data)
         for _, key in ipairs(keys) do
             local value = node[key]
             local keyText = tostring(key):lower()
+            local normalizedKey = keyText:gsub("[^%w]", "")
             local currentPath = path == "" and keyText or path .. "." .. keyText
             local numericValue = tonumber(value)
 
@@ -167,26 +170,23 @@ local function summarizeData(data)
                 local manaPath = currentPath:find("mana", 1, true) ~= nil
 
                 if manaPath then
-                    if keyText:find("required", 1, true)
-                        or keyText:find("cost", 1, true)
-                        or keyText:find("need", 1, true) then
+                    if normalizedKey:find("required", 1, true)
+                        or normalizedKey:find("cost", 1, true)
+                        or normalizedKey:find("need", 1, true) then
                         result.manaRequired = numericValue
-                    elseif keyText:find("maximum", 1, true)
-                        or keyText:find("max", 1, true)
-                        or keyText:find("capacity", 1, true) then
+                    elseif normalizedKey:find("maximum", 1, true)
+                        or normalizedKey:find("max", 1, true)
+                        or normalizedKey:find("capacity", 1, true) then
                         result.manaMaximum = numericValue
-                    elseif keyText == "mana"
-                        or keyText == "current"
-                        or keyText == "amount"
-                        or keyText == "stored"
-                        or keyText == "currentmana"
-                        or keyText == "storedmana"
-                        or keyText == "manastored"
-                        or keyText == "value" then
+                    elseif normalizedKey == "mana"
+                        or normalizedKey:find("current", 1, true)
+                        or normalizedKey:find("amount", 1, true)
+                        or normalizedKey:find("stored", 1, true)
+                        or normalizedKey == "value" then
                         result.manaCurrent = numericValue
                     end
-                elseif keyText == "manacost" or keyText == "manarequired"
-                    or keyText == "requiredmana" or keyText == "neededmana" then
+                elseif normalizedKey == "manacost" or normalizedKey == "manarequired"
+                    or normalizedKey == "requiredmana" or normalizedKey == "neededmana" then
                     result.manaRequired = numericValue
                 end
             end
@@ -242,6 +242,7 @@ local function findCraftItem(data)
         for _, key in ipairs(keys) do
             local value = node[key]
             local keyText = tostring(key):lower()
+            local normalizedKey = keyText:gsub("[^%w]", "")
             local currentPath = path == "" and keyText or path .. "." .. keyText
             local lowerPath = currentPath:lower()
             local recipePath = lowerPath:find("output", 1, true)
@@ -253,13 +254,14 @@ local function findCraftItem(data)
             if type(value) == "table" then
                 walk(value, currentPath, depth + 1)
             elseif type(value) == "string" and recipePath then
-                local itemField = keyText:find("item", 1, true)
-                    or keyText == "id"
-                    or keyText == "name"
-                    or keyText == "output"
-                    or keyText == "result"
-                    or keyText == "crafted"
-                    or keyText == "product"
+                local itemField = normalizedKey:find("item", 1, true)
+                    or normalizedKey == "id"
+                    or normalizedKey == "name"
+                    or normalizedKey == "output"
+                    or normalizedKey == "result"
+                    or normalizedKey == "crafted"
+                    or normalizedKey == "product"
+                    or normalizedKey == "registryname"
 
                 if itemField then
                     local item = normalizeItem(value)
@@ -275,7 +277,7 @@ local function findCraftItem(data)
                             score = score + 70
                         end
 
-                        if keyText:find("item", 1, true) then
+                        if normalizedKey:find("item", 1, true) then
                             score = score + 20
                         end
 
@@ -398,9 +400,17 @@ local function buildMachineInfo(reader)
 
     local data = summarizeData(reader.data)
     local craftItem = findCraftItem(reader.data) or "—"
-    local manaCurrent = data.manaCurrent ~= nil and formatNumber(data.manaCurrent) or "N/A"
-    local manaMaximum = data.manaMaximum ~= nil and formatNumber(data.manaMaximum) or "N/A"
-    local manaRequired = data.manaRequired ~= nil and formatNumber(data.manaRequired) or "N/A"
+    local function displayMana(value)
+        if value == nil then
+            return "N/A"
+        end
+
+        return width >= 80 and formatNumber(value) or compactNumber(value)
+    end
+
+    local manaCurrent = displayMana(data.manaCurrent)
+    local manaMaximum = displayMana(data.manaMaximum)
+    local manaRequired = displayMana(data.manaRequired)
 
     return {
         craftItem = craftItem,
