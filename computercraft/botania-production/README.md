@@ -37,9 +37,11 @@ Run these commands on the Advanced Computer attached to the new Botania 6x6 moni
 
     delete botania.lua
     wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/botania-production/botania.lua botania.lua
+    delete startup.lua
+    wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/botania-production/startup.lua startup.lua
     botania.lua
 
-The FixAdvancedComputers.Py helper keeps the existing Mana TX hotkey (Ctrl+T) and adds Ctrl+B for this Botania dashboard installer.
+The startup.lua launcher runs botania.lua automatically whenever the monitor computer boots. The FixAdvancedComputers.Py helper keeps the existing Mana TX hotkey (Ctrl+T) and adds Ctrl+B to download both Botania files, install startup.lua, and launch the dashboard.
 
 ## Dashboard
 
@@ -61,7 +63,8 @@ Send that file back for machine-specific field mapping. Some machines may not ex
 
 ## Notes
 
-- Install botania.lua on the dedicated monitor computer only.
+- Install botania.lua and startup.lua on the dedicated monitor computer only.
+- startup.lua automatically launches botania.lua after a restart.
 - The seven Block Readers do not need their own dashboard computers or copies of this program.
 - The seven readers and monitor computer must be on the same wired modem peripheral network.
 - The existing computercraft/mana-network/mana_rx.lua and mana_tx.lua files are unchanged.
