@@ -1,25 +1,26 @@
 # PotatoCore Blood Magic Altar Monitor
 
-Remote Blood Magic altar telemetry for CC:Tweaked and Advanced Peripherals.
+Live Blood Magic altar telemetry for Project Infinity 0.1, using Advanced Peripherals Block Reader and CC:Tweaked Ender Modems.
 
-## Hardware layout
+## Hardware
 
-### Altar transmitter computer
-- Ender Modem attached to the computer's **bottom**.
-- Block Reader attached directly to the altar computer's **top** side.
-- The Block Reader must face the Blood Altar.
-- Ender Modem attached to the computer's **bottom** side.
-- The transmitter checks TOP first and can also discover a Block Reader on the wired peripheral network.
+### Altar computer
+- Computer sits directly **under the Blood Altar**.
+- Ender Modem is attached to the computer's **BOTTOM**.
+- Block Reader must face the Blood Altar and be connected to the computer through a wired modem network.
+- The transmitter automatically discovers the Block Reader, including the `blockReader` and `block_reader` peripheral names.
+- The Ender Modem defaults to BOTTOM and is auto-discovered if moved.
+
+The Block Reader cannot be attached to the same top face occupied by the altar. It must be connected through the wired peripheral network, with its reading face pointed at the altar.
 
 ### Remote monitor computer
-- 5-wide x 4-tall monitor connected to the computer's **back**.
-- Ender Modem attached to the computer's **left**.
-
-The transmitter reads the Blood Altar's `bloodAltar` block-entity data. It does not modify the altar.
+- Monitor is expected on the **BACK**, but the script auto-discovers it if moved.
+- Ender Modem is expected on the **LEFT**, but the script auto-discovers it if moved.
+- Monitor text scale is set to 1.5 only when the monitor exposes `setTextScale`. Otherwise, its existing scale is preserved. This avoids the previous nil-method crash.
 
 ## Install transmitter
 
-Run these on the altar computer:
+Run on the altar computer:
 
 ```text
 delete blood_tx.lua
@@ -28,9 +29,9 @@ wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/blo
 startup.lua
 ```
 
-## Install receiver
+## Install monitor
 
-Run these on the monitor computer:
+Run on the monitor computer:
 
 ```text
 delete blood_rx.lua
@@ -39,29 +40,34 @@ wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/blo
 startup.lua
 ```
 
-The receiver leaves the monitor at its current configured text scale. It does not call a scale API, so a peripheral without that method cannot crash the dashboard. The transmitter also holds the last valid altar sample for a 15-second reader grace period when the Block Reader briefly reports no block; the monitor labels this state READER RETRY instead of flashing offline.
+The startup launchers automatically run the correct program after reboot.
 
-The startup file automatically launches the corresponding script after reboot. These commands replace the computer's existing `startup.lua`.
+## Dashboard
 
-## Data displayed
+- Stored Life Essence and altar capacity, with a red capacity bar.
+- Altar tier and active / crafting / standby state.
+- Current input item and stack count.
+- Recipe LP progress, with a cyan progress bar.
+- Progress-decay warning when progress drops during the same active recipe.
+- LP consumption and drain rates.
+- Charging Rune buffer and maximum buffer.
+- Reader retry / connection status.
 
-- Stored Life Essence amount and altar capacity.
-- Altar tier and active / idle state.
-- Input item and stack count.
-- Current recipe progress and progress decay warning.
-- Consumption and drain rates.
-- Charging Rune buffer and buffer capacity.
-- Transmitter online status.
+The dashboard uses cached blit rendering to avoid flashing. It does not clear and repaint the whole monitor every update.
 
-The receiver uses the Rednet protocol `potatocore_blood_altar_v1` and runs independently of the Botania mana monitor.
+## Network
+
+The transmitter broadcasts on `potatocore_blood_altar_v1` every 0.5 seconds. The receiver times out stale readings after 6 seconds. The transmitter holds the last valid sample for up to 15 seconds during temporary Block Reader dropouts.
+
+The Block Reader reads the altar's block-entity data only; it does not modify the altar.
 
 ## Diagnostic probe
 
-To inspect the raw Block Reader data:
+If the transmitter reports missing altar data:
 
 ```text
 wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/blood-magic/blood_probe.lua blood_probe.lua
 blood_probe.lua
 ```
 
-The probe writes the full data to `blood_altar_data.txt`.
+The probe writes the full Block Reader response to `blood_altar_data.txt`.
