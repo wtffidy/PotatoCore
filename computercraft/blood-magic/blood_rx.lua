@@ -1,12 +1,13 @@
 -- ============================================================
 -- POTATOCORE // BLOOD ALTAR MONITOR
--- Remote Blood Magic altar dashboard.
+-- Project Infinity 0.1 | Blood Magic 3.3.8-50
 --
--- Monitor PC:
---   5-wide x 4-tall monitor attached to BACK
---   Ender Modem attached to LEFT
+-- Monitor computer:
+--   Ender Modem: LEFT (auto-discovered if moved)
+--   Monitor: BACK (auto-discovered)
 --
--- Uses the same protocol as blood_tx.lua.
+-- Uses colored capacity/progress bars and avoids setTextScale
+-- unless the attached monitor actually exposes that method.
 -- ============================================================
 
 local CONFIG = {
@@ -14,45 +15,75 @@ local CONFIG = {
     monitorSide = "back",
     protocol = "potatocore_blood_altar_v1",
     transmitterTimeout = 6,
-    receiveInterval = 0.5
+    receiveInterval = 0.25,
+    textScale = 1.5
 }
 
-if peripheral.getType(CONFIG.modemSide) ~= "modem" then
-    error("Ender Modem not found on " .. CONFIG.modemSide:upper() .. "!")
-end
-
-if peripheral.getType(CONFIG.monitorSide) ~= "monitor" then
-    print("Peripheral on BACK: " .. tostring(peripheral.getType(CONFIG.monitorSide)))
-    error("Monitor not found on BACK. Check the monitor connection.")
-end
-
-local monitor = peripheral.wrap(CONFIG.monitorSide)
-if not monitor then
-    error("Could not wrap monitor on BACK.")
-end
-
-rednet.open(CONFIG.modemSide)
-
--- Keep the monitor's current scale; the monitor may not support scaling via this peripheral.
-
-local width, height = monitor.getSize()
-local source
-local lastError
-local previousRows = {}
-local previousProgress
-local previousRecipe
-
 local C = {
-    background = colors.black,
-    text = colors.white,
+    black = colors.black,
+    white = colors.white,
     muted = colors.gray,
     red = colors.red,
     orange = colors.orange,
     green = colors.lime,
     cyan = colors.cyan,
     purple = colors.purple,
-    blue = colors.lightBlue
+    blue = colors.lightBlue,
+    yellow = colors.yellow
 }
+
+local function hasType(name, expected)
+    local types = { peripheral.getType(name) }
+    for _, peripheralType in ipairs(types) do
+        if peripheralType == expected then
+            return true
+        end
+    end
+    return false
+end
+
+local function findPeripheral(preferredSide, expectedType)
+    if peripheral.isPresent(preferredSide) and hasType(preferredSide, expectedType) then
+        return peripheral.wrap(preferredSide), preferredSide
+    end
+
+    for _, name in ipairs(peripheral.getNames()) do
+        if hasType(name, expectedType) then
+            return peripheral.wrap(name), name
+        end
+    end
+
+    return nil, nil
+end
+
+local modem, modemSide = findPeripheral(CONFIG.modemSide, "modem")
+if not modem then
+    error("Ender Modem not found. Expected LEFT. Peripherals: " .. table.concat(peripheral.getNames(), ", "))
+end
+
+local monitor, monitorSide = findPeripheral(CONFIG.monitorSide, "monitor")
+if not monitor then
+    error("Monitor not found. Expected BACK or a connected monitor peripheral.")
+end
+
+rednet.open(modemSide)
+
+-- Some monitor peripherals expose setTextScale and some wrappers do not.
+-- Never assume the method exists: the previous script crashed here.
+if type(monitor.setTextScale) == "function" then
+    pcall(monitor.setTextScale, CONFIG.textScale)
+end
+
+local width, height = monitor.getSize()
+if width < 24 or height < 12 then
+    error("Monitor is too small: " .. width .. "x" .. height .. ". Use a larger monitor or smaller text scale.")
+end
+
+local source
+local lastError
+local previousProgress
+local previousRecipe
+local previousRows = {}
 
 local function fit(value, limit)
     value = tostring(value or "")
@@ -66,8 +97,7 @@ local function fit(value, limit)
 end
 
 local function number(value)
-    value = math.floor(math.max(0, tonumber(value) or 0))
-    local result = tostring(value)
+    local result = tostring(math.floor(math.max(0, tonumber(value) or 0)))
     while true do
         local formatted, count = result:gsub("^(%d+)(%d%d%d)", "%1,%2")
         result = formatted
@@ -77,123 +107,194 @@ local function number(value)
     end
 end
 
-local function addLine(lines, value, colour)
-    if #lines < height then
-        lines[#lines + 1] = {
-            text = fit(value, width),
-            colour = colour or C.text
-        }
+local function compact(value)
+    value = tonumber(value) or 0
+    local absolute = math.abs(value)
+    if absolute >= 1000000 then
+        return string.format("%.2fM", value / 1000000)
+    elseif absolute >= 1000 then
+        return string.format("%.1fK", value / 1000)
+    end
+    return number(value)
+end
+
+local function makeCanvas()
+    local canvas = { chars = {}, foreground = {}, background = {} }
+    local fg = colors.toBlit(C.white)
+    local bg = colors.toBlit(C.black)
+
+    for y = 1, height do
+        canvas.chars[y] = {}
+        canvas.foreground[y] = {}
+        canvas.background[y] = {}
+        for x = 1, width do
+            canvas.chars[y][x] = " "
+            canvas.foreground[y][x] = fg
+            canvas.background[y][x] = bg
+        end
+    end
+
+    return canvas
+end
+
+local function writeAt(canvas, x, y, value, foreground, background)
+    if y < 1 or y > height or x > width then
+        return
+    end
+
+    value = fit(value, math.max(0, width - x + 1))
+    local fg = colors.toBlit(foreground or C.white)
+    local bg = colors.toBlit(background or C.black)
+
+    for index = 1, #value do
+        local position = x + index - 1
+        if position >= 1 and position <= width then
+            canvas.chars[y][position] = value:sub(index, index)
+            canvas.foreground[y][position] = fg
+            canvas.background[y][position] = bg
+        end
     end
 end
 
-local function addBar(lines, percent, colour)
-    local barWidth = math.max(1, width - 4)
-    local filled = math.floor(barWidth * math.max(0, math.min(100, percent)) / 100)
-    local bar = "[" .. string.rep("#", filled) .. string.rep("-", barWidth - filled) .. "]"
-    addLine(lines, bar, colour)
+local function centered(canvas, y, value, colour)
+    value = tostring(value)
+    writeAt(canvas, math.max(1, math.floor((width - #value) / 2) + 1), y, value, colour)
 end
 
-local function render(lines)
-    for y = 1, height do
-        local entry = lines[y] or { text = "", colour = C.text }
-        local value = fit(entry.text, width)
-        local key = value .. ":" .. tostring(entry.colour)
+local function rule(canvas, y, colour)
+    writeAt(canvas, 1, y, string.rep("-", width), colour or C.purple)
+end
 
+local function bar(canvas, y, percent, fillColour)
+    local barWidth = math.max(4, width - 8)
+    local x = 4
+    local filled = math.floor(barWidth * math.max(0, math.min(100, percent)) / 100)
+    writeAt(canvas, x, y, "[", C.muted)
+    for offset = 0, barWidth - 1 do
+        local position = x + 1 + offset
+        local colour = offset < filled and fillColour or C.muted
+        canvas.chars[y][position] = " "
+        canvas.foreground[y][position] = colors.toBlit(colour)
+        canvas.background[y][position] = colors.toBlit(colour)
+    end
+    writeAt(canvas, x + barWidth + 1, y, "]", C.muted)
+end
+
+local function render(canvas)
+    for y = 1, height do
+        local chars = table.concat(canvas.chars[y])
+        local fg = table.concat(canvas.foreground[y])
+        local bg = table.concat(canvas.background[y])
+        local key = chars .. fg .. bg
         if previousRows[y] ~= key then
             monitor.setCursorPos(1, y)
-            monitor.setTextColor(entry.colour)
-            monitor.setBackgroundColor(C.background)
-            monitor.write(value .. string.rep(" ", math.max(0, width - #value)))
+            monitor.blit(chars, fg, bg)
             previousRows[y] = key
         end
     end
 end
 
-local function dashboard()
-    local lines = {}
+local function drawOffline()
+    local canvas = makeCanvas()
+    centered(canvas, 2, "POTATOCORE  //  BLOOD MAGIC", C.red)
+    rule(canvas, 3, C.purple)
+    centered(canvas, math.floor(height / 2) - 1, "ALTAR LINK OFFLINE", C.orange)
+    centered(canvas, math.floor(height / 2) + 1, lastError or "Waiting for altar telemetry...", C.muted)
+    centered(canvas, height - 2, "CHECK ALTAR PC + ENDER MODEM", C.muted)
+    render(canvas)
+end
+
+local function drawDashboard()
     local altar = source and source.altar
-    local online = altar ~= nil
-        and os.epoch("utc") - source.seen <= CONFIG.transmitterTimeout * 1000
-
-    addLine(lines, "POTATOCORE / HEMOCORE", C.red)
-    addLine(lines, string.rep("=", width), C.red)
-
+    local online = altar ~= nil and os.epoch("utc") - source.seen <= CONFIG.transmitterTimeout * 1000
     if not online then
-        addLine(lines, "ALTAR LINK OFFLINE", C.orange)
-        addLine(lines, "Check altar PC", C.muted)
-        if lastError then
-            addLine(lines, fit(lastError, width), C.orange)
-        end
-        addLine(lines, "Waiting for telemetry", C.muted)
-        render(lines)
+        drawOffline()
         return
     end
 
     local stored = math.max(0, tonumber(altar.storedLP) or 0)
     local capacity = math.max(0, tonumber(altar.capacity) or 0)
-    local tankPercent = capacity > 0 and stored / capacity * 100 or 0
-    tankPercent = math.max(0, math.min(100, tankPercent))
+    local tankPercent = capacity > 0 and math.max(0, math.min(100, stored / capacity * 100)) or 0
 
     local progress = math.max(0, tonumber(altar.progress) or 0)
     local required = math.max(0, tonumber(altar.liquidRequired) or 0)
-    local progressPercent = required > 0 and progress / required * 100 or 0
-    progressPercent = math.max(0, math.min(100, progressPercent))
+    local progressPercent = required > 0 and math.max(0, math.min(100, progress / required * 100)) or 0
 
     local status = altar.active and "ACTIVE" or "STANDBY"
     local statusColour = altar.active and C.green or C.orange
     if altar.progressDecaying then
-        status = "DECAYING"
+        status = "PROGRESS DECAYING"
         statusColour = C.orange
     elseif altar.active and progress > 0 then
         status = "CRAFTING"
         statusColour = C.cyan
     end
-
     if altar.readingDelayed then
         status = "READER RETRY"
         statusColour = C.orange
     end
 
-    addLine(lines, "TIER " .. tostring(altar.tier or "?") .. " / " .. status, statusColour)
-    addLine(lines, string.rep("-", width), C.muted)
-    addLine(lines, "LP TANK", C.purple)
-    addLine(lines, number(stored) .. " / " .. number(capacity) .. " LP", C.text)
-    addBar(lines, tankPercent, C.red)
-    addLine(lines, string.format("%.1f%% STORED", tankPercent), C.text)
-    addLine(lines, string.rep("-", width), C.muted)
-    addLine(lines, "RECIPE PROGRESS", C.cyan)
+    local canvas = makeCanvas()
+    centered(canvas, 2, "POTATOCORE  //  BLOOD MAGIC", C.red)
+    rule(canvas, 3, C.purple)
 
+    writeAt(canvas, 3, 5, "ALTAR STATUS", C.muted)
+    local tierText = "TIER " .. tostring(altar.tier or "?")
+    writeAt(canvas, math.max(3, width - #tierText - 2), 5, tierText, C.purple)
+    centered(canvas, 6, status, statusColour)
+
+    rule(canvas, 8, C.purple)
+    writeAt(canvas, 3, 10, "LIFE ESSENCE", C.red)
+    local lpText = compact(stored) .. " / " .. compact(capacity) .. " LP"
+    writeAt(canvas, 3, 11, lpText, C.white)
+    local percentText = string.format("%.1f%%", tankPercent)
+    writeAt(canvas, math.max(3, width - #percentText - 2), 11, percentText, C.green)
+    bar(canvas, 13, tankPercent, C.red)
+
+    rule(canvas, 15, C.purple)
+    writeAt(canvas, 3, 17, "CURRENT RECIPE", C.cyan)
     local item = tostring(altar.inputItem or "Empty")
     local count = tonumber(altar.inputCount) or 0
-    addLine(lines, count > 0 and (item .. " x" .. count) or "No item in altar", C.text)
-    addLine(lines, number(progress) .. " / " .. number(required) .. " LP", C.text)
-    addBar(lines, progressPercent, altar.progressDecaying and C.orange or C.cyan)
+    local itemText = count > 0 and (item .. " x" .. count) or "No item on altar"
+    writeAt(canvas, 3, 18, itemText, C.yellow)
+
+    writeAt(canvas, 3, 20, compact(progress) .. " / " .. compact(required) .. " LP", C.white)
+    local progressLabel = string.format("%.1f%%", progressPercent)
+    writeAt(canvas, math.max(3, width - #progressLabel - 2), 20, progressLabel, C.cyan)
+    bar(canvas, 22, progressPercent, altar.progressDecaying and C.orange or C.cyan)
+
+    rule(canvas, 24, C.purple)
+    writeAt(canvas, 3, 26, "LP USE", C.muted)
+    writeAt(canvas, 12, 26, tostring(altar.consumptionRate or 0) .. " / tick", C.orange)
+    writeAt(canvas, math.max(3, math.floor(width / 2) + 2), 26, "DRAIN", C.muted)
+    writeAt(canvas, math.max(3, math.floor(width / 2) + 10), 26, tostring(altar.drainRate or 0) .. " / tick", C.orange)
+
+    writeAt(canvas, 3, 28, "CHARGING RUNE BUFFER", C.muted)
+    local bufferText = compact(altar.totalCharge) .. " / " .. compact(altar.maxCharge)
+    writeAt(canvas, math.max(3, width - #bufferText - 2), 28, bufferText, C.blue)
 
     if altar.progressDecaying then
-        addLine(lines, "!! PROGRESS DECAYING !!", C.orange)
+        centered(canvas, math.min(height - 2, 30), "WARNING: PROGRESS IS DECAYING", C.orange)
+    elseif altar.readingDelayed then
+        centered(canvas, math.min(height - 2, 30), "BLOCK READER RETRYING", C.orange)
     else
-        addLine(lines, string.format("%.1f%% COMPLETE", progressPercent), C.cyan)
+        centered(canvas, math.min(height - 2, 30), "LIVE TELEMETRY  //  0.25s UPDATES", C.muted)
     end
 
-    addLine(lines, "USE " .. tostring(altar.consumptionRate or 0)
-        .. " / DRAIN " .. tostring(altar.drainRate or 0) .. " LP/T", C.orange)
-    addLine(lines, "BUFFER " .. number(altar.totalCharge)
-        .. "/" .. number(altar.maxCharge), C.blue)
-    addLine(lines, "NODE " .. tostring(source.computer) .. " / LINK OK", C.green)
-
-    render(lines)
+    render(canvas)
 end
 
-print("POTATOCORE // BLOOD ALTAR MONITOR")
-print("Monitor: BACK (" .. width .. "x" .. height .. ")")
-print("Ender Modem: LEFT")
-print("Text scale: using monitor default")
+print("========================================")
+print(" POTATOCORE // BLOOD MAGIC MONITOR")
+print("========================================")
+print("Monitor: " .. monitorSide .. " (" .. width .. "x" .. height .. ")")
+print("Modem  : " .. modemSide)
+print("Scale  : " .. (type(monitor.setTextScale) == "function" and tostring(CONFIG.textScale) or "monitor default"))
 print("Protocol: " .. CONFIG.protocol)
-
-monitor.setBackgroundColor(C.background)
-monitor.setTextColor(C.text)
+monitor.setBackgroundColor(C.black)
+monitor.setTextColor(C.white)
 monitor.clear()
-dashboard()
+drawOffline()
 
 while true do
     local senderId, message = rednet.receive(CONFIG.protocol, CONFIG.receiveInterval)
@@ -217,18 +318,16 @@ while true do
                 altar = incoming,
                 seen = os.epoch("utc")
             }
-            lastError = nil
+            lastError = incoming.readerError
         elseif message.kind == "blood_altar_offline" then
-            -- Offline packets are diagnostic hints, not proof that the network
-            -- transmitter vanished. Keep the last good reading until it times out.
             lastError = tostring(message.error or "Altar reader offline")
         end
 
-        dashboard()
+        drawDashboard()
     elseif source and os.epoch("utc") - source.seen > CONFIG.transmitterTimeout * 1000 then
         source = nil
         previousProgress = nil
         previousRecipe = nil
-        dashboard()
+        drawOffline()
     end
 end
