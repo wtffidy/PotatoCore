@@ -1,6 +1,6 @@
 # PotatoCore Monitor
 
-Minimal Botania production display for the dedicated monitor computer.
+Botania production dashboard for the dedicated monitor computer.
 
 ## Hardware
 
@@ -10,35 +10,32 @@ Minimal Botania production display for the dedicated monitor computer.
 
 ## Install
 
-    delete monitor.lua
-    wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/monitor/monitor.lua monitor.lua
-    delete startup.lua
-    wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/monitor/startup.lua startup.lua
-    monitor.lua
+```text
+delete monitor.lua
+wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/monitor/monitor.lua monitor.lua
+delete startup.lua
+wget https://raw.githubusercontent.com/wtffidy/PotatoCore/main/computercraft/monitor/startup.lua startup.lua
+monitor.lua
+```
 
 Or focus the dedicated monitor computer's CraftOS terminal and press **Ctrl+M** in FixAdvancedComputers.Py.
 
 ## Display
 
-Each of the seven machine cards shows only:
+Each of the seven machine cards shows:
 
 1. The item currently being crafted, when exposed by the Block Reader.
 2. Stored mana / maximum mana.
 3. Mana required for the current craft.
+4. A live green capacity bar showing stored mana as a percentage of the reported maximum.
 
-No computer IDs, network counters, peripheral status, uptime, recipe debug paths, or inventory diagnostics appear on the monitor.
+The bar is deliberately a **mana capacity** indicator, not a crafting-progress indicator. Missing capacity data produces a neutral grey bar rather than inventing a percentage.
 
-- Mana values use full comma-separated numbers when the display is wide enough and compact values on narrower displays.
+- Two-column layout with a purple frame, cyan machine headings, yellow item names, and green mana indicators.
+- Full comma-separated mana values on wide displays and compact values on narrower displays.
 - Missing values display as `N/A`; an empty or unknown output displays as `NO ITEM`.
-- The display uses a two-column, framed layout with the Botania/Mana Core color palette.
 - Cached colored rendering avoids full-screen flashing.
-- Machine transmitters send fresh Block Reader data every 0.25 seconds (up to four updates per second per machine).
-- Item detection reads the machines' actual output inventory slots from `inv.Items`, including the Industrial Agglomeration Factory's Terrasteel output slot.
-- Raw receiver diagnostics are still written to `botania_received_data.txt` every ten seconds, separately from the display.
-- Diagnostic serialization handles shared or repeated table references safely.
+- Machine transmitters broadcast fresh Block Reader data on `potatocore_botania_machines_v1`.
+- Raw receiver diagnostics are written to `botania_received_data.txt`, separately from the display.
 
-The receiver listens on `potatocore_botania_machines_v1`. It does not replace the Mana Core receiver in `computercraft/mana-network/mana_rx.lua`.
-
-## Network
-
-The monitor computer uses an Ender Modem on the bottom. Each machine computer uses an Ender Modem on the top. Ender Modems exchange Rednet messages; they do not share Block Reader peripherals across computers.
+The receiver does not replace the Mana Core receiver in `computercraft/mana-network/mana_rx.lua`.
