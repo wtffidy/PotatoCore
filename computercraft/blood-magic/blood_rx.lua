@@ -166,7 +166,11 @@ local function rule(canvas, y, colour)
 end
 
 local function bar(canvas, y, percent, fillColour)
-    local barWidth = math.max(4, width - 8)
+    if y < 1 or y > height then
+        return
+    end
+
+    local barWidth = math.max(4, math.min(width - 8, width - 8))
     local x = 4
     local filled = math.floor(barWidth * math.max(0, math.min(100, percent)) / 100)
     writeAt(canvas, x, y, "[", C.muted)
@@ -196,6 +200,46 @@ end
 
 local function drawOffline()
     local canvas = makeCanvas()
+
+    -- Compact layout for smaller joined monitors (for example 33x17).
+    -- Keep every draw operation inside the available screen height.
+    if height < 30 then
+        centered(canvas, 1, "POTATOCORE  //  BLOOD MAGIC", C.red)
+        rule(canvas, 2, C.purple)
+        centered(canvas, 3, status, statusColour)
+        local tierText = "TIER " .. tostring(altar.tier or "?")
+        writeAt(canvas, math.max(3, width - #tierText - 2), 4, tierText, C.purple)
+
+        rule(canvas, 5, C.purple)
+        writeAt(canvas, 3, 6, "LIFE ESSENCE", C.red)
+        local lpText = compact(stored) .. " / " .. compact(capacity) .. " LP"
+        writeAt(canvas, 3, 7, lpText, C.white)
+        local percentText = string.format("%.1f%%", tankPercent)
+        writeAt(canvas, math.max(3, width - #percentText - 2), 7, percentText, C.green)
+        bar(canvas, 8, tankPercent, C.red)
+
+        rule(canvas, 9, C.purple)
+        writeAt(canvas, 3, 10, "CURRENT RECIPE", C.cyan)
+        local item = tostring(altar.inputItem or "Empty")
+        local count = tonumber(altar.inputCount) or 0
+        local itemText = count > 0 and (item .. " x" .. count) or "No item on altar"
+        writeAt(canvas, 3, 11, itemText, C.yellow)
+
+        writeAt(canvas, 3, 12, compact(progress) .. " / " .. compact(required) .. " LP", C.white)
+        local progressLabel = string.format("%.1f%%", progressPercent)
+        writeAt(canvas, math.max(3, width - #progressLabel - 2), 12, progressLabel, C.cyan)
+        bar(canvas, 13, progressPercent, altar.progressDecaying and C.orange or C.cyan)
+
+        writeAt(canvas, 3, 14, "LP USE: " .. tostring(altar.consumptionRate or 0) .. "/tick", C.orange)
+        writeAt(canvas, 3, 15, "DRAIN: " .. tostring(altar.drainRate or 0) .. "/tick", C.orange)
+
+        local footer = altar.progressDecaying and "WARNING: PROGRESS DECAYING"
+            or (altar.readingDelayed and "BLOCK READER RETRYING" or "LIVE ALTAR TELEMETRY")
+        centered(canvas, 17, footer, altar.progressDecaying or altar.readingDelayed and C.orange or C.muted)
+        render(canvas)
+        return
+    end
+
     centered(canvas, 2, "POTATOCORE  //  BLOOD MAGIC", C.red)
     rule(canvas, 3, C.purple)
     centered(canvas, math.floor(height / 2) - 1, "ALTAR LINK OFFLINE", C.orange)
