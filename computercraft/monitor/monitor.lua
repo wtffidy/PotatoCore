@@ -586,22 +586,35 @@ local function drawCard(canvas, definition, info, x, y, cardWidth, cardHeight)
     local leftDashes = math.max(0, math.floor((innerWidth - #heading) / 2))
     local rightDashes = math.max(0, innerWidth - #heading - leftDashes)
 
-    writeAt(canvas, x, y, "+" .. string.rep("-", leftDashes), C.border)
+    writeAt(canvas, x, y, "+" .. string.rep("-", leftDashes), C.purple)
     writeAt(canvas, x + 1 + leftDashes, y, heading, C.cyan)
-    writeAt(canvas, x + 1 + leftDashes + #heading, y, string.rep("-", rightDashes) .. "+", C.border)
+    writeAt(canvas, x + 1 + leftDashes + #heading, y, string.rep("-", rightDashes) .. "+", C.purple)
 
     local function cardLine(offset, label, value, colour)
         local line = label .. "  " .. value
-        writeAt(canvas, x, y + offset, "|", C.border)
+        writeAt(canvas, x, y + offset, "|", C.purple)
         writeAt(canvas, x + 1, y + offset, fit(line, innerWidth), colour)
-        writeAt(canvas, right, y + offset, "|", C.border)
+        writeAt(canvas, right, y + offset, "|", C.purple)
     end
 
-    cardLine(1, "ITEM", info.craftItem, C.yellow)
+    cardLine(1, "CRAFTING", info.craftItem, C.yellow)
     cardLine(2, "MANA", info.mana, C.green)
-    cardLine(3, "MANA NEEDED", info.manaRequired, C.purple)
+    cardLine(3, "COST", info.manaRequired, C.purple)
 
-    writeAt(canvas, x, y + cardHeight - 1, "+" .. string.rep("-", innerWidth) .. "+", C.border)
+    local barWidth = innerWidth
+    local filled = info.manaRatio and math.floor(barWidth * info.manaRatio) or 0
+    writeAt(canvas, x, y + 4, "|", C.purple)
+    for offset = 0, barWidth - 1 do
+        local position = x + 1 + offset
+        local colour = info.manaRatio == nil and C.muted
+            or (offset < filled and C.green or C.muted)
+        canvas.chars[y + 4][position] = " "
+        canvas.foreground[y + 4][position] = colors.toBlit(colour)
+        canvas.background[y + 4][position] = colors.toBlit(colour)
+    end
+    writeAt(canvas, right, y + 4, "|", C.purple)
+
+    writeAt(canvas, x, y + cardHeight - 1, "+" .. string.rep("-", innerWidth) .. "+", C.purple)
 end
 
 local function renderCanvas(canvas)
