@@ -1,19 +1,18 @@
 -- ============================================================
--- POTATOCORE // FLUIX MANA THROUGHPUT
+-- POTATOCORE // FLUIX MANA DASHBOARD
 -- Project Infinity 0.1 | CC:Tweaked + Advanced Peripherals
 --
 -- Hardware:
 --   - Computer directly connected to a Botania Mana Pool peripheral.
 --   - Monitor directly connected to the computer.
---   - A monitor multiblock may extend to the right; CC:Tweaked
---     exposes the joined display as one monitor peripheral.
---   - No Ender Modem or Rednet required.
+--   - A monitor multiblock extending right is detected as one display.
+--   - No modem or Rednet required.
 -- ============================================================
 
 local CONFIG = {
     poolName = nil, -- Set to a peripheral name to force a specific pool.
     sampleInterval = 0.5,
-    smoothingSamples = 4,
+    smoothingSamples = 8,
     textScale = 0.5
 }
 
@@ -24,7 +23,9 @@ local COLORS = {
     purple = colors.purple,
     cyan = colors.cyan,
     green = colors.lime,
-    red = colors.red
+    red = colors.red,
+    yellow = colors.yellow,
+    barEmpty = colors.gray
 }
 
 local function findManaPool()
@@ -37,9 +38,9 @@ local function findManaPool()
 
     for _, name in ipairs(peripheral.getNames()) do
         if peripheral.getType(name) == "manaPool" then
-            local pool = peripheral.wrap(name)
-            if pool and type(pool.getMana) == "function" then
-                return pool, name
+            local candidate = peripheral.wrap(name)
+            if candidate and type(candidate.getMana) == "function" then
+                return candidate, name
             end
         end
     end
@@ -70,6 +71,28 @@ local sampleCount = 0
 local previousMana = nil
 local previousTime = nil
 local currentRate = 0
+local currentMana = 0
+local maxMana = nil
+local manaNeeded = nil
+local poolEmpty = nil
+local poolFull = nil
+local chargeMode = nil
+local hasItems = nil
+local poolItems = nil
+local readError = nil
+
+local function callPool(method)
+    if type(pool[method]) ~= "function" then
+        return nil
+    end
+
+    local ok, result = pcall(pool[method])
+    if ok then
+        return result
+    end
+
+    return nil
+end
 
 local function formatNumber(value)
     local number = math.floor(math.abs(value) + 0.5)
@@ -99,18 +122,23 @@ local function compactNumber(value)
     return formatNumber(value)
 end
 
-local function centered(value)
-    value = tostring(value)
-    return math.max(1, math.floor((width - #value) / 2) + 1)
-end
+local function formatDuration(seconds)
+    if not seconds or seconds < 0 or seconds == math.huge then
+        return "N/A"
+    end
 
-local function writeCentered(y, value, foreground, background)
-    value = tostring(value)
-    local x = centered(value)
-    monitor.setCursorPos(x, y)
-    monitor.setTextColor(foreground or COLORS.white)
-    monitor.setBackgroundColor(background or COLORS.background)
-    monitor.write(value)
+    seconds = math.floor(seconds)
+    local hours = math.floor(seconds / 3600)
+    local minutes = math.floor((seconds % 3600) / 60)
+    local remaining = seconds % 60
+
+    if hours > 0 then
+        return string.format("%dh %02dm", hours, minutes)
+    elseif minutes > 0 then
+        return string.format("%dm %02ds", minutes, remaining)
+    end
+
+    return string.format("%ds", remaining)
 end
 
 local function writeAt(x, y, value, foreground, background)
@@ -118,17 +146,71 @@ local function writeAt(x, y, value, foreground, background)
         return
     end
 
+    value = tostring(value)
+    value = value:sub(1, math.max(0, width - x + 1))
     monitor.setCursorPos(math.max(1, x), y)
     monitor.setTextColor(foreground or COLORS.white)
     monitor.setBackgroundColor(background or COLORS.background)
-    monitor.write(tostring(value))
+    monitor.write(value)
+end
+
+local function writeCentered(y, value, foreground)
+    value = tostring(value)
+    local x = math.max(1, math.floor((width - #value) / 2) + 1)
+    writeAt(x, y, value, foreground)
 end
 
 local function drawRule(y, colour)
+    if y < 1 or y > height then
+        return
+    end
+
     monitor.setCursorPos(1, y)
     monitor.setTextColor(colour or COLORS.purple)
     monitor.setBackgroundColor(COLORS.background)
     monitor.write(string.rep("-", width))
+end
+
+local function drawBar(x, y, barWidth, ratio)
+    if y < 1 or y > height or barWidth < 3 then
+        return
+    end
+
+    ratio = math.max(0, math.min(1, ratio or 0))
+    local innerWidth = barWidth - 2
+    local filled = math.floor(innerWidth * ratio)
+
+    writeAt(x, y, "[", COLORS.muted)
+    monitor.setCursorPos(x + 1, y)
+    monitor.setBackgroundColor(COLORS.barEmpty)
+    monitor.setTextColor(COLORS.barEmpty)
+    monitor.write(string.rep(" ", innerWidth))
+
+    if filled > 0 then
+        monitor.setCursorPos(x + 1, y)
+        monitor.setBackgroundColor(COLORS.green)
+        monitor.setTextColor(COLORS.green)
+        monitor.write(string.rep(" ", filled))
+    end
+
+    writeAt(x + barWidth - 1, y, "]", COLORS.muted)
+    monitor.setBackgroundColor(COLORS.background)
+end
+
+local function getPoolStatus()
+    if readError then
+        return "READ ERROR", COLORS.red
+    elseif poolFull then
+        return "FULL", COLORS.cyan
+    elseif poolEmpty then
+        return "EMPTY", COLORS.yellow
+    elseif currentRate > 0 then
+        return "RECEIVING MANA", COLORS.green
+    elseif currentRate < 0 then
+        return "DRAINING MANA", COLORS.yellow
+    end
+
+    return "STANDBY", COLORS.muted
 end
 
 local function draw()
@@ -136,57 +218,135 @@ local function draw()
     monitor.setTextColor(COLORS.white)
     monitor.clear()
 
-    local titleY = math.max(2, math.floor(height * 0.15))
-    local valueY = math.max(titleY + 2, math.floor(height * 0.34))
-    local unitY = valueY + 2
-    local ruleY = unitY + 2
-    local minuteY = ruleY + 2
-    local hourY = minuteY + 2
+    local titleY = 2
+    local statusY = 4
+    local manaY = 7
+    local barY = 9
+    local rateY = 12
+    local rateDetailY = 14
+    local capacityY = 17
+    local modeY = 20
     local footerY = height - 2
 
-    writeCentered(titleY, "FLUIX MANA GENERATION", COLORS.purple)
-    drawRule(titleY + 1, COLORS.purple)
+    writeCentered(titleY, "POTATOCORE  //  FLUIX MANA", COLORS.purple)
+    drawRule(3, COLORS.purple)
 
-    local rateText = (currentRate >= 0 and "+" or "-") .. compactNumber(currentRate)
-    local valueColour = currentRate > 0 and COLORS.green
+    local status, statusColour = getPoolStatus()
+    writeAt(3, statusY, "POOL STATUS", COLORS.muted)
+    writeAt(width - #status - 2, statusY, status, statusColour)
+
+    writeAt(3, manaY, "STORED MANA", COLORS.cyan)
+    local manaText = compactNumber(currentMana)
+    local capacityText = maxMana and compactNumber(maxMana) or "UNKNOWN"
+    writeAt(3, manaY + 1, manaText .. " / " .. capacityText, COLORS.white)
+
+    local fillRatio = maxMana and maxMana > 0 and currentMana / maxMana or 0
+    local percentText = maxMana and string.format("%.2f%%", fillRatio * 100) or "N/A"
+    writeAt(width - #percentText - 2, manaY + 1, percentText, COLORS.green)
+
+    local barWidth = math.max(8, width - 6)
+    drawBar(3, barY, barWidth, fillRatio)
+
+    drawRule(11, COLORS.purple)
+    writeAt(3, rateY, "NET FLOW", COLORS.muted)
+    local rateColour = currentRate > 0 and COLORS.green
         or currentRate < 0 and COLORS.red
-        or COLORS.muted
+        or COLORS.white
+    local rateText = (currentRate > 0 and "+" or "") .. compactNumber(currentRate) .. " mana/s"
+    writeAt(width - #rateText - 2, rateY, rateText, rateColour)
 
-    local maxValueLength = math.max(8, math.min(width - 4, 24))
-    if #rateText > maxValueLength then
-        rateText = (currentRate >= 0 and "+" or "-") .. compactNumber(currentRate)
+    writeAt(3, rateDetailY, "PER MINUTE", COLORS.muted)
+    local minuteText = (currentRate > 0 and "+" or "") .. compactNumber(currentRate * 60)
+    writeAt(width - #minuteText - 2, rateDetailY, minuteText, rateColour)
+
+    writeAt(3, rateDetailY + 1, "PER HOUR", COLORS.muted)
+    local hourText = (currentRate > 0 and "+" or "") .. compactNumber(currentRate * 3600)
+    writeAt(width - #hourText - 2, rateDetailY + 1, hourText, rateColour)
+
+    drawRule(16, COLORS.purple)
+    writeAt(3, capacityY, "CAPACITY LEFT", COLORS.muted)
+    writeAt(width - #(manaNeeded and compactNumber(manaNeeded) or "N/A") - 2, capacityY,
+        manaNeeded and compactNumber(manaNeeded) or "N/A", COLORS.white)
+
+    local estimate = "N/A"
+    if currentRate > 0 and manaNeeded and manaNeeded > 0 then
+        estimate = formatDuration(manaNeeded / currentRate)
+    elseif poolFull then
+        estimate = "FULL"
+    end
+    writeAt(3, capacityY + 1, "TIME TO FULL", COLORS.muted)
+    writeAt(width - #estimate - 2, capacityY + 1, estimate, COLORS.cyan)
+
+    local drainEstimate = "N/A"
+    if currentRate < 0 and currentMana > 0 then
+        drainEstimate = formatDuration(currentMana / math.abs(currentRate))
+    elseif poolEmpty then
+        drainEstimate = "EMPTY"
+    end
+    writeAt(3, capacityY + 2, "TIME TO EMPTY", COLORS.muted)
+    writeAt(width - #drainEstimate - 2, capacityY + 2, drainEstimate, COLORS.yellow)
+
+    drawRule(21, COLORS.purple)
+    writeAt(3, modeY, "POOL MODE", COLORS.muted)
+    local modeText = chargeMode == nil and "NOT REPORTED"
+        or (chargeMode and "CHARGE ITEMS" or "MANA STORAGE")
+    writeAt(width - #modeText - 2, modeY, modeText, COLORS.white)
+
+    writeAt(3, modeY + 1, "ITEM ON POOL", COLORS.muted)
+    local itemText = hasItems == nil and "NOT REPORTED"
+        or (hasItems and "YES" or "NO")
+    writeAt(width - #itemText - 2, modeY + 1, itemText,
+        hasItems and COLORS.green or COLORS.muted)
+
+    if poolItems and type(poolItems) == "table" and #poolItems > 0 then
+        local item = poolItems[1]
+        local itemName = type(item) == "table" and (item.displayName or item.name or item.id) or tostring(item)
+        if itemName then
+            writeAt(3, modeY + 2, "POOL ITEM: " .. tostring(itemName), COLORS.cyan)
+        end
     end
 
-    writeCentered(valueY, rateText, valueColour)
-    writeCentered(unitY, "MANA / SECOND", COLORS.cyan)
-
-    drawRule(ruleY, COLORS.purple)
-    writeAt(3, minuteY, "PER MINUTE", COLORS.muted)
-    local minuteText = compactNumber(currentRate * 60)
-    writeAt(width - #minuteText - 2, minuteY, minuteText, COLORS.white)
-
-    writeAt(3, hourY, "PER HOUR", COLORS.muted)
-    local hourText = compactNumber(currentRate * 3600)
-    writeAt(width - #hourText - 2, hourY, hourText, COLORS.white)
-
-    drawRule(math.max(hourY + 2, footerY - 1), COLORS.purple)
-    writeAt(3, footerY, "LIVE MONITORING", COLORS.cyan)
-    local status = pool and "ACTIVE" or "OFFLINE"
-    writeAt(width - #status - 2, footerY, status,
-        pool and COLORS.green or COLORS.red)
+    drawRule(footerY - 1, COLORS.purple)
+    writeAt(3, footerY, "POOL: " .. tostring(poolName), COLORS.muted)
+    local sampleText = "AVG " .. tostring(sampleCount) .. "/" .. tostring(CONFIG.smoothingSamples)
+    writeAt(width - #sampleText - 2, footerY, sampleText, COLORS.cyan)
 
     if height >= 30 then
-        writeCentered(height - 4, "NET MANA FLOW", COLORS.muted)
+        writeCentered(height - 4, "LIVE TELEMETRY  //  " .. tostring(CONFIG.sampleInterval) .. "s REFRESH", COLORS.muted)
     end
 end
 
-local function updateRate()
+local function updateStats()
     local ok, mana = pcall(pool.getMana)
     if not ok or type(mana) ~= "number" then
+        readError = true
         currentRate = 0
         previousMana = nil
         previousTime = nil
         return
+    end
+
+    readError = false
+    currentMana = mana
+    maxMana = callPool("getMaxMana")
+    manaNeeded = callPool("getManaNeeded")
+
+    if type(maxMana) ~= "number" and type(manaNeeded) == "number" then
+        maxMana = mana + manaNeeded
+    end
+    if type(manaNeeded) ~= "number" and type(maxMana) == "number" then
+        manaNeeded = math.max(0, maxMana - mana)
+    end
+
+    poolEmpty = callPool("isEmpty")
+    poolFull = callPool("isFull")
+    chargeMode = callPool("canChargeItem")
+    hasItems = callPool("hasItems")
+    poolItems = callPool("getItems")
+
+    if type(maxMana) == "number" then
+        poolEmpty = poolEmpty == nil and mana <= 0 or poolEmpty
+        poolFull = poolFull == nil and mana >= maxMana or poolFull
     end
 
     local now = os.epoch("utc")
@@ -211,7 +371,7 @@ local function updateRate()
 end
 
 print("========================================")
-print(" POTATOCORE // FLUIX MANA MONITOR")
+print(" POTATOCORE // FLUIX MANA DASHBOARD")
 print("========================================")
 print("Pool        : " .. tostring(poolName))
 print("Monitor     : " .. tostring(monitorName) .. " (" .. width .. "x" .. height .. ")")
@@ -221,7 +381,7 @@ print("----------------------------------------")
 
 monitor.clear()
 while true do
-    updateRate()
+    updateStats()
     draw()
     sleep(CONFIG.sampleInterval)
 end
