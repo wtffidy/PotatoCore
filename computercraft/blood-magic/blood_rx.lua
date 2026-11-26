@@ -138,7 +138,10 @@ local function makeCanvas()
 end
 
 local function writeAt(canvas, x, y, value, foreground, background)
-    if y < 1 or y > height or x > width then
+    if not canvas or not canvas.chars or not canvas.chars[y]
+        or not canvas.foreground or not canvas.foreground[y]
+        or not canvas.background or not canvas.background[y]
+        or y < 1 or y > height or x > width then
         return
     end
 
@@ -166,20 +169,27 @@ local function rule(canvas, y, colour)
 end
 
 local function bar(canvas, y, percent, fillColour)
-    if y < 1 or y > height then
+    if not canvas or not canvas.chars or not canvas.chars[y]
+        or not canvas.foreground or not canvas.foreground[y]
+        or not canvas.background or not canvas.background[y]
+        or y < 1 or y > height then
         return
     end
 
-    local barWidth = math.max(4, math.min(width - 8, width - 8))
+    local barWidth = math.max(1, math.min(width - 10, width - 10))
     local x = 4
     local filled = math.floor(barWidth * math.max(0, math.min(100, percent)) / 100)
     writeAt(canvas, x, y, "[", C.muted)
     for offset = 0, barWidth - 1 do
         local position = x + 1 + offset
-        local colour = offset < filled and fillColour or C.muted
-        canvas.chars[y][position] = " "
-        canvas.foreground[y][position] = colors.toBlit(colour)
-        canvas.background[y][position] = colors.toBlit(colour)
+        if position >= 1 and position <= width
+            and canvas.chars[y][position] and canvas.foreground[y][position]
+            and canvas.background[y][position] then
+            local colour = offset < filled and fillColour or C.muted
+            canvas.chars[y][position] = " "
+            canvas.foreground[y][position] = colors.toBlit(colour)
+            canvas.background[y][position] = colors.toBlit(colour)
+        end
     end
     writeAt(canvas, x + barWidth + 1, y, "]", C.muted)
 end
@@ -327,6 +337,7 @@ end
 
 print("========================================")
 print(" POTATOCORE // BLOOD MAGIC MONITOR")
+print(" BUILD: COMPACT-17 FIX 3")
 print("========================================")
 print("Monitor: " .. monitorSide .. " (" .. width .. "x" .. height .. ")")
 print("Modem  : " .. modemSide)
