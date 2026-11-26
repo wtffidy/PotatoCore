@@ -345,8 +345,12 @@ local function updateStats()
     poolItems = callPool("getItems")
 
     if type(maxMana) == "number" then
-        poolEmpty = poolEmpty == nil and mana <= 0 or poolEmpty
-        poolFull = poolFull == nil and mana >= maxMana or poolFull
+        if poolEmpty == nil then
+            poolEmpty = mana <= 0
+        end
+        if poolFull == nil then
+            poolFull = mana >= maxMana
+        end
     end
 
     local now = os.epoch("utc")
