@@ -509,10 +509,17 @@ local function buildMachineInfo(reader)
     local manaMaximum = displayMana(data.manaMaximum)
     local manaRequired = displayMana(currentCraftMana)
 
+    local manaRatio = nil
+    if type(data.manaCurrent) == "number" and type(data.manaMaximum) == "number"
+        and data.manaMaximum > 0 then
+        manaRatio = math.max(0, math.min(1, data.manaCurrent / data.manaMaximum))
+    end
+
     return {
         craftItem = craftItem,
         mana = "[" .. manaCurrent .. " / " .. manaMaximum .. "]",
-        manaRequired = "[" .. manaRequired .. "]"
+        manaRequired = "[" .. manaRequired .. "]",
+        manaRatio = manaRatio
     }
 end
 
@@ -694,11 +701,10 @@ local function drawDashboard()
     local assigned = assignMachines(readers)
     local canvas = newCanvas()
 
-    -- A quiet title, then the seven production modules. No diagnostics,
-    -- computer IDs, link counters, uptime, or peripheral status on-screen.
-    writeAt(canvas, 1, 1, "+" .. string.rep("=", width - 2) .. "+", C.border)
-    writeCentered(canvas, 2, "BOTANIA PRODUCTION", C.green)
-    writeAt(canvas, 1, 3, "+" .. string.rep("=", width - 2) .. "+", C.border)
+    -- A clean title and seven production cards. Diagnostics stay in the log file.
+    writeAt(canvas, 1, 1, "+" .. string.rep("=", width - 2) .. "+", C.purple)
+    writeCentered(canvas, 2, "POTATOCORE  //  BOTANIA PRODUCTION", C.green)
+    writeAt(canvas, 1, 3, "+" .. string.rep("=", width - 2) .. "+", C.purple)
 
     local columns = 2
     local gap = 2
@@ -707,10 +713,10 @@ local function drawDashboard()
     local secondX = firstX + cardWidth + gap
     local firstY = 5
     local rowCount = math.ceil(#MACHINES / columns)
-    local cardHeight = 5
+    local cardHeight = 6
     local availableRows = height - firstY + 1
     local extraRows = math.max(0, availableRows - rowCount * cardHeight)
-    local rowGap = math.max(1, math.min(4, math.floor(extraRows / math.max(1, rowCount - 1))))
+    local rowGap = math.max(0, math.min(2, math.floor(extraRows / math.max(1, rowCount - 1))))
 
     for index, definition in ipairs(MACHINES) do
         local column = (index - 1) % columns
