@@ -235,7 +235,7 @@ local function drawOffline()
 
         local footer = altar.progressDecaying and "WARNING: PROGRESS DECAYING"
             or (altar.readingDelayed and "BLOCK READER RETRYING" or "LIVE ALTAR TELEMETRY")
-        centered(canvas, 17, footer, altar.progressDecaying or altar.readingDelayed and C.orange or C.muted)
+        centered(canvas, 17, footer, (altar.progressDecaying or altar.readingDelayed) and C.orange or C.muted)
         render(canvas)
         return
     end
