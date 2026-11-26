@@ -1,17 +1,17 @@
 -- ============================================================
 -- POTATOCORE // BLOOD ALTAR TRANSMITTER
--- Project Infinity 0.1 | Blood Magic + Advanced Peripherals
+-- Project Infinity 0.1 | Blood Magic 3.3.8-50
 --
--- Altar computer hardware:
---   Block Reader: TOP
---   Ender Modem: BOTTOM
+-- Hardware:
+--   Computer directly below the Blood Altar.
+--   Ender Modem attached to the computer's BOTTOM.
+--   Block Reader faces the altar and is connected to the computer
+--   through a wired modem network.
 --
--- The Block Reader must face the Blood Altar.
--- This script only reads altar data and broadcasts it.
+-- The reader is auto-discovered. The modem defaults to BOTTOM.
 -- ============================================================
 
 local CONFIG = {
-    readerSide = "top",
     modemSide = "bottom",
     protocol = "potatocore_blood_altar_v1",
     updateInterval = 0.5,
@@ -29,48 +29,45 @@ local function hasType(name, expected)
     return false
 end
 
-local function listPeripherals()
-    local result = {}
-    for _, name in ipairs(peripheral.getNames()) do
-        local types = { peripheral.getType(name) }
-        result[#result + 1] = name .. " [" .. table.concat(types, ", ") .. "]"
+local function findModem()
+    if peripheral.isPresent(CONFIG.modemSide) and hasType(CONFIG.modemSide, "modem") then
+        return CONFIG.modemSide
     end
-    return #result > 0 and table.concat(result, ", ") or "none"
-end
 
-if not hasType(CONFIG.modemSide, "modem") then
-    error("No modem on BOTTOM. Detected: " .. listPeripherals())
-end
-
--- Prefer the directly attached top-side reader, then search wired peripherals.
-local readerName
-if peripheral.isPresent(CONFIG.readerSide) and hasType(CONFIG.readerSide, "blockReader") then
-    readerName = CONFIG.readerSide
-elseif peripheral.isPresent(CONFIG.readerSide) and hasType(CONFIG.readerSide, "block_reader") then
-    readerName = CONFIG.readerSide
-else
     for _, name in ipairs(peripheral.getNames()) do
-        if hasType(name, "blockReader") or hasType(name, "block_reader") then
-            readerName = name
-            break
+        if hasType(name, "modem") then
+            return name
         end
     end
+
+    return nil
 end
 
-if not readerName then
-    error("Block Reader not detected. Expected it on TOP or on the wired network. Detected: " .. listPeripherals())
+local function findBlockReader()
+    for _, name in ipairs(peripheral.getNames()) do
+        if hasType(name, "blockReader") or hasType(name, "block_reader") then
+            local reader = peripheral.wrap(name)
+            if reader and type(reader.getBlockName) == "function"
+                and type(reader.getBlockData) == "function" then
+                return reader, name
+            end
+        end
+    end
+
+    return nil, nil
 end
 
-local reader = peripheral.wrap(readerName)
+local modemSide = findModem()
+if not modemSide then
+    error("No Ender Modem found. Expected BOTTOM. Peripherals: " .. table.concat(peripheral.getNames(), ", "))
+end
+
+local reader, readerName = findBlockReader()
 if not reader then
-    error("Could not wrap Block Reader '" .. readerName .. "'. Detected: " .. listPeripherals())
+    error("No Block Reader found. Connect the reader facing the altar through a wired modem network.")
 end
 
-if type(reader.getBlockName) ~= "function" or type(reader.getBlockData) ~= "function" then
-    error("Peripheral '" .. readerName .. "' is missing getBlockName/getBlockData. Detected: " .. listPeripherals())
-end
-
-rednet.open(CONFIG.modemSide)
+rednet.open(modemSide)
 
 local function readInputItem(blockData)
     local items = blockData.Items or blockData.items
@@ -78,9 +75,9 @@ local function readInputItem(blockData)
         return "Empty", 0
     end
 
-    for _, stack in ipairs(items) do
+    for _, stack in pairs(items) do
         if type(stack) == "table" and tonumber(stack.Slot or stack.slot) == 0 then
-            local itemId = tostring(stack.id or stack.Id or stack.name or "Unknown")
+            local itemId = tostring(stack.id or stack.Id or stack.name or stack.Name or "Unknown")
             return itemId, tonumber(stack.Count or stack.count) or 1
         end
     end
@@ -92,29 +89,33 @@ local function readAltar()
     local blockName = reader.getBlockName()
     if blockName ~= CONFIG.altarBlock then
         return nil, "Block Reader '" .. readerName .. "' sees " .. tostring(blockName)
-            .. "; expected " .. CONFIG.altarBlock .. ". Check which way the reader faces."
+            .. "; expected " .. CONFIG.altarBlock .. ". Check reader direction."
     end
 
     local blockData = reader.getBlockData()
     if type(blockData) ~= "table" then
-        return nil, "Block Reader returned no tile data for " .. CONFIG.altarBlock
+        return nil, "Block Reader returned no altar tile data."
     end
 
     local altar = blockData.bloodAltar
     if type(altar) ~= "table" then
-        return nil, "bloodAltar data missing. Run blood_probe.lua to inspect the reader data."
+        return nil, "bloodAltar data missing. Run blood_probe.lua to inspect the reader."
     end
 
     local item, itemCount = readInputItem(blockData)
+    local storedLP = tonumber(altar.Amount or altar.amount) or 0
+    local capacity = tonumber(altar.capacity) or 0
+    local progress = tonumber(altar.progress) or 0
+    local required = tonumber(altar.liquidRequired) or 0
 
     return {
         block = blockName,
-        storedLP = tonumber(altar.Amount or altar.amount) or 0,
-        capacity = tonumber(altar.capacity) or 0,
+        storedLP = storedLP,
+        capacity = capacity,
         tier = tostring(altar.upgradeLevel or "UNKNOWN"),
-        progress = tonumber(altar.progress) or 0,
+        progress = progress,
         active = altar.isActive == true or tonumber(altar.isActive) == 1,
-        liquidRequired = tonumber(altar.liquidRequired) or 0,
+        liquidRequired = required,
         consumptionRate = tonumber(altar.consumptionRate) or 0,
         drainRate = tonumber(altar.drainRate) or 0,
         bufferCapacity = tonumber(altar.bufferCapacity) or 0,
@@ -126,57 +127,46 @@ local function readAltar()
     }
 end
 
-print("========================================")
-print(" POTATOCORE // BLOOD ALTAR TRANSMITTER")
-print("========================================")
-print("Computer ID : " .. os.getComputerID())
-print("Block Reader: " .. readerName)
-print("Ender Modem : " .. CONFIG.modemSide:upper())
-print("Protocol    : " .. CONFIG.protocol)
-print("----------------------------------------")
+local function broadcast(message)
+    rednet.broadcast(message, CONFIG.protocol)
+end
 
-local lastError
 local lastGoodAltar
 local lastGoodAt
+local lastError
 local offlineBroadcast = false
 
-local function broadcastAltar(altar)
-    rednet.broadcast({
-        kind = "blood_altar",
-        version = 1,
-        computer = os.getComputerID(),
-        altar = altar
-    }, CONFIG.protocol)
-end
-
-local function copyStaleAltar(altar, errorMessage, staleSeconds)
-    local copy = {}
-    for key, value in pairs(altar) do
-        copy[key] = value
-    end
-
-    copy.readingDelayed = true
-    copy.readerError = errorMessage
-    copy.readingDelayedSeconds = staleSeconds
-    return copy
-end
+print("========================================")
+print(" POTATOCORE // BLOOD ALTAR LINK")
+print("========================================")
+print("Computer    : " .. os.getComputerID())
+print("Modem       : " .. modemSide)
+print("Block Reader: " .. readerName)
+print("Protocol    : " .. CONFIG.protocol)
+print("Status      : ONLINE")
+print("----------------------------------------")
 
 while true do
-    local success, altar, readError = pcall(readAltar)
+    local ok, altar, readError = pcall(readAltar)
 
-    if success and altar then
+    if ok and altar then
         altar.readingDelayed = false
         lastGoodAltar = altar
         lastGoodAt = os.epoch("utc")
         offlineBroadcast = false
-        broadcastAltar(altar)
+        broadcast({
+            kind = "blood_altar",
+            version = 2,
+            computer = os.getComputerID(),
+            altar = altar
+        })
 
         if lastError then
             print("Block Reader link restored.")
             lastError = nil
         end
     else
-        local message = success and tostring(readError) or tostring(altar)
+        local message = ok and tostring(readError) or tostring(altar)
         local now = os.epoch("utc")
         local staleSeconds = lastGoodAt and math.floor((now - lastGoodAt) / 1000) or nil
 
@@ -185,17 +175,28 @@ while true do
             lastError = message
         end
 
-        if lastGoodAltar and staleSeconds <= CONFIG.readerGracePeriod then
-            -- Hold the last valid altar reading through brief Block Reader dropouts.
-            broadcastAltar(copyStaleAltar(lastGoodAltar, message, staleSeconds))
+        if lastGoodAltar and staleSeconds and staleSeconds <= CONFIG.readerGracePeriod then
+            local stale = {}
+            for key, value in pairs(lastGoodAltar) do
+                stale[key] = value
+            end
+            stale.readingDelayed = true
+            stale.readerError = message
+            stale.readingDelayedSeconds = staleSeconds
+            broadcast({
+                kind = "blood_altar",
+                version = 2,
+                computer = os.getComputerID(),
+                altar = stale
+            })
         elseif not offlineBroadcast then
-            rednet.broadcast({
+            broadcast({
                 kind = "blood_altar_offline",
-                version = 1,
+                version = 2,
                 computer = os.getComputerID(),
                 error = message,
                 timestamp = now
-            }, CONFIG.protocol)
+            })
             offlineBroadcast = true
         end
     end
